@@ -22,7 +22,7 @@ public:
 
 class FhirValue : public FhirObject {
 public:
-    virtual std::string GetPropertyName() = 0;
+    virtual std::string GetPropertyName() const = 0;
     static std::shared_ptr<FhirValue> Parse(const web::json::value &propertyName, const web::json::value &property);
 };
 

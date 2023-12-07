@@ -10,6 +10,7 @@
 #include <memory>
 
 void AreEqual(const std::string &expected, const std::string &value);
+void AreEqual(size_t expected, size_t value);
 [[noreturn]] void FailOfDynamicType(const char *expType, const char *inType);
 template <class T, class P> void OfDynamicType(const P &obj, const std::function<void (const T &)> &func) {
     const T *tobj = dynamic_cast<const T *>(&obj);
