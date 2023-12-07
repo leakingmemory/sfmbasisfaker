@@ -21,7 +21,7 @@ int main(int argc, char **argv) {
         json = sstr.str();
         input.close();
     }
-    auto medication = FhirMedication::Parse(web::json::value::parse(json));
+    auto medication = FhirMedication::Parse(FhirMedication::Parse(web::json::value::parse(json)).ToJson());
     AreEqual("Medication", medication.GetResourceType());
     AreEqual("43033452", medication.GetId());
     AreEqual("http://ehelse.no/fhir/StructureDefinition/sfm-Magistrell-Medication", medication.GetProfile().at(0));
@@ -32,4 +32,6 @@ int main(int argc, char **argv) {
     AreEqual("urn:oid:2.16.578.1.12.4.1.1.7448", medication.GetForm().GetCoding().at(0).GetSystem());
     AreEqual("880", medication.GetForm().GetCoding().at(0).GetCode());
     AreEqual("inj/inf, oppl", medication.GetForm().GetCoding().at(0).GetDisplay());
+    AreEqual(2, medication.GetIngredients().size());
+    AreEqual(750, ((long) (((medication.GetAmount().GetNumerator().GetValue() * ((double)10.0)) + ((double)5.0)))) / 10);
 }

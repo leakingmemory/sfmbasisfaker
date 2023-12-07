@@ -64,6 +64,9 @@ public:
     [[nodiscard]] std::string GetText() const {
         return text;
     }
+    [[nodiscard]] bool IsSet() const {
+        return !coding.empty() || !text.empty();
+    }
 };
 
 class FhirCodeableConceptValue : public FhirValue, public FhirCodeableConcept {
@@ -80,6 +83,79 @@ public:
     std::string GetPropertyName() const override;
     [[nodiscard]] web::json::value ToJson() const override;
     static std::shared_ptr<FhirCodeableConceptValue> Parse(const web::json::value &obj);
+};
+
+class FhirQuantity : public FhirObject {
+private:
+    std::string unit;
+    long milliValue;
+    bool isSet;
+public:
+    FhirQuantity() : unit(), milliValue(0), isSet(false) {}
+    FhirQuantity(double value, const std::string &unit) : unit(unit), milliValue((long) floor(value * ((double)1000.0))), isSet(true) {}
+    [[nodiscard]] std::string GetUnit() const {
+        return unit;
+    }
+    [[nodiscard]] double GetValue() const {
+        return ((double) milliValue) / ((double)1000.0);
+    }
+    bool IsSet() const {
+        return isSet;
+    }
+    web::json::value ToJson() const;
+    static FhirQuantity Parse(const web::json::value &obj);
+};
+
+class FhirRatio : public FhirObject {
+private:
+    FhirQuantity numerator;
+    FhirQuantity denominator;
+public:
+    FhirRatio() : numerator(), denominator() {}
+    FhirRatio(const FhirQuantity &numerator, const FhirQuantity &denominator)
+            : numerator(numerator), denominator(denominator) {}
+    FhirRatio(FhirQuantity &&numerator, FhirQuantity &&denominator)
+            : numerator(std::move(numerator)), denominator(std::move(denominator)) {}
+    [[nodiscard]] FhirQuantity GetNumerator() const {
+        return numerator;
+    }
+    [[nodiscard]] FhirQuantity GetDenominator() const {
+        return denominator;
+    }
+    bool IsSet() const {
+        return numerator.IsSet() || denominator.IsSet();
+    }
+    web::json::value ToJson() const;
+    static FhirRatio Parse(const web::json::value &obj);
+};
+
+class FhirReference : public FhirObject {
+private:
+    std::string reference;
+    std::string type;
+    std::string display;
+public:
+    FhirReference() : reference(), type(), display() {}
+    FhirReference(const std::string &reference, const std::string &type, const std::string &display)
+            : reference(reference), type(type), display(display) {}
+    FhirReference(std::string &&reference, std::string &&type, std::string &&display)
+            : reference(std::move(reference)), type(std::move(type)), display(std::move(display)) {}
+
+    [[nodiscard]] std::string GetReference() const {
+        return reference;
+    }
+    [[nodiscard]] std::string GetType() const {
+        return type;
+    }
+    [[nodiscard]] std::string GetDisplay() const {
+        return display;
+    }
+    [[nodiscard]] bool IsSet() const {
+        return !reference.empty() || !type.empty() || !display.empty();
+    }
+
+    web::json::value ToJson() const;
+    static FhirReference Parse(const web::json::value &obj);
 };
 
 #endif //SFMBASISFAKER_VALUE_H

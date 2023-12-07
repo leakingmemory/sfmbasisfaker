@@ -66,16 +66,29 @@ public:
     web::json::value ToJson() const override;
 };
 
-class Fhir : public FhirObject {
+class FhirExtendable : public FhirObject {
+private:
+    std::vector<std::shared_ptr<FhirExtension>> extensions{};
+protected:
+    bool ParseInline(const web::json::value &json);
+public:
+    web::json::value ToJson() const;
+    virtual ~FhirExtendable() = default;
+    [[nodiscard]] std::vector<std::shared_ptr<FhirExtension>> GetExtensions() const {
+        return extensions;
+    }
+};
+
+class Fhir : public FhirExtendable {
 private:
     std::string resourceType{};
     std::string id{};
     std::vector<std::string> profile{};
     FhirStatus status{};
-    std::vector<std::shared_ptr<FhirExtension>> extensions{};
 protected:
     bool ParseInline(const web::json::value &json);
 public:
+    web::json::value ToJson() const;
     virtual ~Fhir() = default;
     [[nodiscard]] std::string GetResourceType() const {
         return resourceType;
@@ -88,9 +101,6 @@ public:
     }
     [[nodiscard]] FhirStatus GetStatus() const {
         return status;
-    }
-    [[nodiscard]] std::vector<std::shared_ptr<FhirExtension>> GetExtensions() const {
-        return extensions;
     }
 };
 

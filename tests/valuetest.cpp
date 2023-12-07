@@ -49,6 +49,27 @@ int main() {
                     AreEqual("text", cc.GetText());
                 });
     }
+    {
+        auto input = FhirQuantity(10.0, "mg");
+        auto output = FhirQuantity::Parse(input.ToJson());
+        AreEqual(10, (((long) (output.GetValue() * ((double)10.0))) + 5) / 10);
+        AreEqual("mg", output.GetUnit());
+    }
+    {
+        auto input = FhirRatio(FhirQuantity(10.0, "mg"), FhirQuantity(80.0, "ml"));
+        auto output = FhirRatio::Parse(input.ToJson());
+        AreEqual(10, (((long) (output.GetNumerator().GetValue() * ((double)10.0))) + 5) / 10);
+        AreEqual("mg", output.GetNumerator().GetUnit());
+        AreEqual(80, (((long) (output.GetDenominator().GetValue() * ((double)10.0))) + 5) / 10);
+        AreEqual("ml", output.GetDenominator().GetUnit());
+    }
+    {
+        auto input = FhirReference("testRef", "ReferenceType", "Reference Display");
+        auto output = FhirReference::Parse(input.ToJson());
+        AreEqual("testRef", output.GetReference());
+        AreEqual("ReferenceType", output.GetType());
+        AreEqual("Reference Display", output.GetDisplay());
+    }
 
     /*
      * Value extension:

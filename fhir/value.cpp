@@ -83,3 +83,80 @@ web::json::value FhirCodeableConceptValue::ToJson() const {
 std::shared_ptr<FhirCodeableConceptValue> FhirCodeableConceptValue::Parse(const web::json::value &obj) {
     return std::make_shared<FhirCodeableConceptValue>(FhirCodeableConcept::Parse(obj));
 }
+
+web::json::value FhirQuantity::ToJson() const {
+    auto obj = FhirObject::ToJson();
+    obj["value"] = web::json::value::number(GetValue());
+    obj["unit"] = web::json::value::string(unit);
+    return obj;
+}
+
+FhirQuantity FhirQuantity::Parse(const web::json::value &obj) {
+    std::string unit{};
+    if (obj.has_string_field("unit")) {
+        unit = obj.at("unit").as_string();
+    }
+    if (obj.has_number_field("value")) {
+        return FhirQuantity(obj.at("value").as_double(), unit);
+    } else if (!unit.empty()) {
+        return FhirQuantity(0.0, unit);
+    } else {
+        return {};
+    }
+}
+
+web::json::value FhirRatio::ToJson() const {
+    auto obj = FhirObject::ToJson();
+    if (numerator.IsSet()) {
+        obj["numerator"] = numerator.ToJson();
+    }
+    if (denominator.IsSet()) {
+        obj["denominator"] = denominator.ToJson();
+    }
+    return obj;
+}
+
+FhirRatio FhirRatio::Parse(const web::json::value &obj) {
+    FhirQuantity numerator{};
+    if (obj.has_object_field("numerator")) {
+        numerator = FhirQuantity::Parse(obj.at("numerator"));
+    }
+    FhirQuantity denominator{};
+    if (obj.has_object_field("denominator")) {
+        denominator = FhirQuantity::Parse(obj.at("denominator"));
+    }
+    return {std::move(numerator), std::move(denominator)};
+}
+
+web::json::value FhirReference::ToJson() const {
+    auto obj = FhirObject::ToJson();
+    if (!reference.empty()) {
+        obj["reference"] = web::json::value::string(reference);
+    }
+    if (!type.empty()) {
+        obj["type"] = web::json::value::string(type);
+    }
+    if (!display.empty()) {
+        obj["display"] = web::json::value::string(display);
+    }
+    return obj;
+}
+
+FhirReference FhirReference::Parse(const web::json::value &obj) {
+    std::string reference{};
+    if (obj.has_string_field("reference")) {
+        reference = obj.at("reference").as_string();
+    }
+
+    std::string type{};
+    if (obj.has_string_field("type")) {
+        type = obj.at("type").as_string();
+    }
+
+    std::string display{};
+    if (obj.has_string_field("display")) {
+        display = obj.at("display").as_string();
+    }
+
+    return {std::move(reference), std::move(type), std::move(display)};
+}

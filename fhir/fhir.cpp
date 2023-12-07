@@ -58,7 +58,32 @@ web::json::value FhirGenericExtension::ToJson() const {
 }
 
 
+bool FhirExtendable::ParseInline(const web::json::value &json) {
+    if (json.has_array_field("extension")) {
+        for (const auto &ext : json.at("extension").as_array()) {
+            extensions.emplace_back(FhirExtension::Parse(ext));
+        }
+    }
+    return true;
+}
+
+web::json::value FhirExtendable::ToJson() const {
+    auto obj = FhirObject::ToJson();
+    if (!extensions.empty()) {
+        auto arr = web::json::value::array(extensions.size());
+        typeof(extensions.size()) i = 0;
+        for (const auto &ext : extensions) {
+            arr[i++] = ext->ToJson();
+        }
+        obj["extension"] = arr;
+    }
+    return obj;
+}
+
 bool Fhir::ParseInline(const web::json::value &json) {
+    if (!FhirExtendable::ParseInline(json)) {
+        return false;
+    }
     if (json.has_string_field("resourceType")) {
         resourceType = json.at("resourceType").as_string();
     }
@@ -83,10 +108,33 @@ bool Fhir::ParseInline(const web::json::value &json) {
             throw std::exception();
         }
     }
-    if (json.has_array_field("extension")) {
-        for (const auto &ext : json.at("extension").as_array()) {
-            extensions.emplace_back(FhirExtension::Parse(ext));
-        }
-    }
     return true;
+}
+
+web::json::value Fhir::ToJson() const {
+    auto obj = FhirExtendable::ToJson();
+    if (!resourceType.empty()) {
+        obj["resourceType"] = web::json::value::string(resourceType);
+    }
+    if (!id.empty()) {
+        obj["id"] = web::json::value::string(id);
+    }
+    if (!profile.empty()) {
+        auto meta = web::json::value::object();
+        {
+            auto arr = web::json::value::array(profile.size());
+            typeof(profile.size()) i = 0;
+            for (const auto &p: profile) {
+                arr[i++] = web::json::value::string(p);
+            }
+            meta["profile"] = arr;
+        }
+        obj["meta"] = meta;
+    }
+    switch (status) {
+        case FhirStatus::ACTIVE:
+            obj["status"] = web::json::value::string("active");
+            break;
+    }
+    return obj;
 }
