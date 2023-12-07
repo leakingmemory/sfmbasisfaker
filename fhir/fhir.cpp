@@ -4,41 +4,6 @@
 
 #include <fhir/fhir.h>
 
-web::json::value FhirObject::ToJson() const {
-    return web::json::value::object();
-}
-
-web::json::value FhirExtension::ToJson() const {
-    auto obj = FhirObject::ToJson();
-    obj["url"] = web::json::value::string(url);
-    return obj;
-}
-
-std::shared_ptr<FhirExtension> FhirExtension::Parse(const web::json::value &obj) {
-    std::string url{};
-    if (obj.has_string_field("url")) {
-        url = obj.at("url").as_string();
-        bool generic{false};
-        std::string valueProperty{};
-        web::json::value value{};
-        for (const auto &child : obj.as_object()) {
-            if (child.first == "url") {
-                continue;
-            }
-            if (!valueProperty.empty() || !child.first.starts_with("value")) {
-                generic = true;
-                break;
-            }
-            valueProperty = child.first;
-            value = child.second;
-        }
-        if (!generic && !valueProperty.empty()) {
-            return std::make_shared<FhirValueExtension>(url, FhirValue::Parse(valueProperty, value));
-        }
-    }
-    return std::make_shared<FhirGenericExtension>(obj);
-}
-
 web::json::value FhirValueExtension::ToJson() const {
     auto obj = FhirExtension::ToJson();
     if (value) {
@@ -57,28 +22,6 @@ web::json::value FhirGenericExtension::ToJson() const {
     return json;
 }
 
-
-bool FhirExtendable::ParseInline(const web::json::value &json) {
-    if (json.has_array_field("extension")) {
-        for (const auto &ext : json.at("extension").as_array()) {
-            extensions.emplace_back(FhirExtension::Parse(ext));
-        }
-    }
-    return true;
-}
-
-web::json::value FhirExtendable::ToJson() const {
-    auto obj = FhirObject::ToJson();
-    if (!extensions.empty()) {
-        auto arr = web::json::value::array(extensions.size());
-        typeof(extensions.size()) i = 0;
-        for (const auto &ext : extensions) {
-            arr[i++] = ext->ToJson();
-        }
-        obj["extension"] = arr;
-    }
-    return obj;
-}
 
 bool Fhir::ParseInline(const web::json::value &json) {
     if (!FhirExtendable::ParseInline(json)) {

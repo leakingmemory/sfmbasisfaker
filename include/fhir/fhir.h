@@ -8,40 +8,16 @@
 #include <string>
 #include <vector>
 #include <memory>
-#include <cpprest/json.h>
+#include "extension.h"
 
 enum class FhirStatus {
     ACTIVE
-};
-
-class FhirObject {
-public:
-    virtual ~FhirObject() = default;
-    virtual web::json::value ToJson() const;
 };
 
 class FhirValue : public FhirObject {
 public:
     virtual std::string GetPropertyName() const = 0;
     static std::shared_ptr<FhirValue> Parse(const std::string &propertyName, const web::json::value &property);
-};
-
-class FhirExtension : public FhirObject {
-private:
-    std::string url;
-public:
-    FhirExtension() : url() {}
-    explicit FhirExtension(const std::string &url) : url(url) {}
-    explicit FhirExtension(std::string &&url) : url(std::move(url)) {}
-    virtual ~FhirExtension() = default;
-    virtual web::json::value ToJson() const override;
-    static std::shared_ptr<FhirExtension> Parse(const web::json::value &);
-    [[nodiscard]] std::string GetUrl() const {
-        return url;
-    }
-    void SetUrl(const std::string &url) {
-        this->url = url;
-    }
 };
 
 class FhirValueExtension : public FhirExtension {
@@ -64,19 +40,6 @@ public:
     FhirGenericExtension() : json() {}
     explicit FhirGenericExtension(const web::json::value &json);
     web::json::value ToJson() const override;
-};
-
-class FhirExtendable : public FhirObject {
-private:
-    std::vector<std::shared_ptr<FhirExtension>> extensions{};
-protected:
-    bool ParseInline(const web::json::value &json);
-public:
-    web::json::value ToJson() const;
-    virtual ~FhirExtendable() = default;
-    [[nodiscard]] std::vector<std::shared_ptr<FhirExtension>> GetExtensions() const {
-        return extensions;
-    }
 };
 
 class Fhir : public FhirExtendable {

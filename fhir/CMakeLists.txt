@@ -1,3 +1,3 @@
-add_library(libfhir OBJECT fhir.cpp value.cpp medication.cpp)
+add_library(libfhir OBJECT fhir.cpp value.cpp medication.cpp fhirextendable.cpp extension.cpp fhirobject.cpp)
 
 target_include_directories(libfhir PRIVATE "../include")
