@@ -8,6 +8,20 @@
 #include <string>
 #include <functional>
 #include <memory>
+#include <iostream>
+
+template <typename T> concept EqualityAssertable = requires (T a) {
+    { a != a } -> std::convertible_to<bool>;
+    { std::cerr << a };
+};
+
+template <EqualityAssertable T> void AreEqual(T expected, T value) {
+    if (expected != value) {
+        std::cerr << "Assertion failed" << std::endl;
+        std::cerr << "Extected: " << expected << "\nGot: " << value << "\n";
+        abort();
+    }
+}
 
 void AreEqual(const std::string &expected, const std::string &value);
 void AreEqual(size_t expected, size_t value);

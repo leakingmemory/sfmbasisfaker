@@ -68,13 +68,30 @@ public:
 
 class Fhir : public FhirObject {
 private:
-    std::string resourceType;
-    std::string id;
-    std::string profile;
-    FhirStatus status;
-    std::vector<std::shared_ptr<FhirExtension>> extensions;
+    std::string resourceType{};
+    std::string id{};
+    std::string profile{};
+    FhirStatus status{};
+    std::vector<std::shared_ptr<FhirExtension>> extensions{};
+protected:
+    bool ParseInline(const web::json::value &json);
 public:
     virtual ~Fhir() = default;
+    [[nodiscard]] std::string GetResourceType() const {
+        return resourceType;
+    }
+    [[nodiscard]] std::string GetId() const {
+        return id;
+    }
+    [[nodiscard]] std::string GetProfile() const {
+        return profile;
+    }
+    [[nodiscard]] FhirStatus GetStatus() const {
+        return status;
+    }
+    [[nodiscard]] std::vector<std::shared_ptr<FhirExtension>> GetExtensions() const {
+        return extensions;
+    }
 };
 
 #endif //SFMBASISFAKER_FHIR_H

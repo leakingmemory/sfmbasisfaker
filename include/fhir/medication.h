@@ -9,7 +9,7 @@
 
 class FhirMedication : public Fhir {
 public:
-
+    static FhirMedication Parse(const web::json::value &);
 };
 
 #endif //SFMBASISFAKER_MEDICATION_H
