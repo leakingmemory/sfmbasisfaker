@@ -1,0 +1,180 @@
+{
+  "resourceType": "MedicationStatement",
+  "id": "1268666092",
+  "meta": {
+    "profile": [
+      "http://ehelse.no/fhir/StructureDefinition/sfm-MedicationStatement"
+    ]
+  },
+  "extension": [
+    {
+      "extension": [
+        {
+          "url": "reseptdate",
+          "valueDate": "2023-12-06"
+        },
+        {
+          "url": "expirationdate",
+          "valueDate": "2024-12-05"
+        },
+        {
+          "url": "festUpdate",
+          "valueDateTime": "2023-11-24T11:58:58+00:00"
+        },
+        {
+          "url": "dssn",
+          "valueString": "1"
+        },
+        {
+          "url": "numberofpackages",
+          "valueDecimal": 2.0
+        },
+        {
+          "url": "reit",
+          "valueString": "0"
+        },
+        {
+          "url": "itemgroup",
+          "valueCodeableConcept": {
+            "coding": [
+              {
+                "system": "urn:oid:2.16.578.1.12.4.1.1.7402",
+                "code": "L",
+                "display": "Legemiddel"
+              }
+            ]
+          }
+        },
+        {
+          "extension": [
+            {
+              "url": "status",
+              "valueCodeableConcept": {
+                "coding": [
+                  {
+                    "system": "urn:oid:2.16.578.1.12.4.1.1.7408",
+                    "code": "E",
+                    "display": "Ekspederbar"
+                  }
+                ]
+              }
+            }
+          ],
+          "url": "rfstatus"
+        },
+        {
+          "url": "typeresept",
+          "valueCodeableConcept": {
+            "coding": [
+              {
+                "system": "urn:oid:2.16.578.1.12.4.1.1.7491",
+                "code": "E",
+                "display": "Eresept"
+              }
+            ]
+          }
+        }
+      ],
+      "url": "http://ehelse.no/fhir/StructureDefinition/sfm-reseptamendment"
+    },
+    {
+      "extension": [
+        {
+          "url": "status",
+          "valueCodeableConcept": {
+            "coding": [
+              {
+                "system": "http://ehelse.no/fhir/CodeSystem/sfm-medicationstatement-registration-status",
+                "code": "3",
+                "display": "Godkjent"
+              }
+            ]
+          }
+        },
+        {
+          "url": "type",
+          "valueCodeableConcept": {
+            "coding": [
+              {
+                "system": "http://ehelse.no/fhir/CodeSystem/sfm-performer-roles",
+                "code": "1",
+                "display": "Forskrevet av"
+              }
+            ]
+          }
+        },
+        {
+          "url": "provider",
+          "valueReference": {
+            "reference": "urn:uuid:5fe73414-d24b-4675-b1ab-714b94265992",
+            "type": "http://ehelse.no/fhir/StructureDefinition/sfm-Practitioner",
+            "display": "Jesper Odd Hansen, HPR: 7479654"
+          }
+        },
+        {
+          "url": "timestamp",
+          "valueDateTime": "2023-12-06T13:36:36.658+01:00"
+        }
+      ],
+      "url": "http://ehelse.no/fhir/StructureDefinition/sfm-regInfo"
+    },
+    {
+      "extension": [
+        {
+          "url": "genericSubstitutionAccepted",
+          "valueBoolean": true
+        }
+      ],
+      "url": "http://ehelse.no/fhir/StructureDefinition/sfm-generic-substitution"
+    }
+  ],
+  "identifier": [
+    {
+      "use": "usual",
+      "type": {
+        "text": "ReseptId"
+      },
+      "value": "7fd3e0c6-1c19-4e0b-b60d-dd006d1ce5d0"
+    }
+  ],
+  "status": "active",
+  "medicationReference": {
+    "reference": "urn:uuid:f874c81b-b1ce-4da3-966f-652fe569c5dd",
+    "type": "http://ehelse.no/fhir/StructureDefinition/sfm-Magistrell-Medication",
+    "display": "Glucos. B. Braun inf, oppl 200 mg/ml ad, Cetirizin 0,01 mg inj/inf, oppl 750 mg"
+  },
+  "subject": {
+    "reference": "urn:uuid:a325b9dc-2aa2-421f-ab93-5bdf99481981",
+    "type": "http://ehelse.no/fhir/StructureDefinition/sfm-Patient",
+    "display": "Jeo 48 Test"
+  },
+  "dosage": [
+    {
+      "extension": [
+        {
+          "url": "http://ehelse.no/fhir/StructureDefinition/sfm-use",
+          "valueCodeableConcept": {
+            "coding": [
+              {
+                "system": "urn:oid:2.16.578.1.12.4.1.1.9101",
+                "code": "1",
+                "display": "Fast"
+              }
+            ]
+          }
+        },
+        {
+          "extension": [
+            {
+              "url": "text",
+              "valueString": "1"
+            }
+          ],
+          "url": "http://ehelse.no/fhir/StructureDefinition/sfm-application-area"
+        }
+      ],
+      "sequence": 1,
+      "text": "1"
+    }
+  ]
+}

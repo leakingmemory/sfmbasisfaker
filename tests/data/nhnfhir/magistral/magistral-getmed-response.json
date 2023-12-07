@@ -1,0 +1,742 @@
+{
+  "resourceType": "Parameters",
+  "parameter": [
+    {
+      "name": "medication",
+      "resource": {
+        "resourceType": "Bundle",
+        "id": "bf0c6266-6acc-4024-b8af-140c2377586e",
+        "meta": {
+          "lastUpdated": "2023-12-06T14:13:03.8116932+01:00",
+          "source": "http://base-fhir.test2.forskrivning.no/Patient/$getMedication?_format=json",
+          "profile": [
+            "http://ehelse.no/fhir/StructureDefinition/sfm-MedicationBundle"
+          ]
+        },
+        "type": "document",
+        "timestamp": "2023-12-06T14:13:03.8116863+01:00",
+        "total": 8,
+        "link": [
+          {
+            "relation": "self",
+            "url": "http://base-fhir.test2.forskrivning.no/Patient/$getMedication"
+          }
+        ],
+        "entry": [
+          {
+            "fullUrl": "urn:uuid:b79c07c7-ff22-4eff-b133-da37b3f47e7d",
+            "resource": {
+              "resourceType": "Composition",
+              "id": "a0fd22f6-ab1e-4e6d-b86a-fc5165213fe2",
+              "meta": {
+                "profile": [
+                  "http://ehelse.no/fhir/StructureDefinition/sfm-MedicationComposition"
+                ]
+              },
+              "identifier": {
+                "use": "official",
+                "value": "5093bea3-78d5-4551-aac9-0ff3175dadae"
+              },
+              "status": "final",
+              "type": {
+                "coding": [
+                  {
+                    "system": "http://loinc.org",
+                    "code": "11503-0",
+                    "display": "Medical records"
+                  }
+                ]
+              },
+              "subject": {
+                "reference": "urn:uuid:a325b9dc-2aa2-421f-ab93-5bdf99481981",
+                "type": "http://ehelse.no/fhir/StructureDefinition/sfm-Patient",
+                "display": "Jeo 48 Test"
+              },
+              "date": "2023-12-06",
+              "author": [
+                {
+                  "reference": "urn:uuid:5fe73414-d24b-4675-b1ab-714b94265992",
+                  "type": "http://ehelse.no/fhir/StructureDefinition/sfm-Practitioner",
+                  "display": "Jesper Odd Hansen, HPR: 7479654"
+                },
+                {
+                  "reference": "urn:uuid:bf31fce2-0a21-4dd4-b9e7-47aa48302ad3",
+                  "type": "http://ehelse.no/fhir/StructureDefinition/sfm-Organization",
+                  "display": "HER: 79744"
+                }
+              ],
+              "title": "Medication summary",
+              "confidentiality": "N",
+              "section": [
+                {
+                  "title": "Medication",
+                  "code": {
+                    "coding": [
+                      {
+                        "system": "http://ehelse.no/fhir/CodeSystem/sfm-section-types",
+                        "code": "sectionMedication",
+                        "display": "List of Medication statements"
+                      }
+                    ]
+                  },
+                  "text": {
+                    "status": "generated",
+                    "div": "<xhtml:div xmlns:xhtml=\"http://www.w3.org/1999/xhtml\">List of medications</xhtml:div>"
+                  },
+                  "entry": [
+                    {
+                      "reference": "urn:uuid:437a6ba7-90a1-467b-8feb-a9dbbe505d40",
+                      "type": "http://ehelse.no/fhir/StructureDefinition/sfm-MedicationStatement",
+                      "display": "Glucos. B. Braun inf, oppl 200 mg/ml ad, Cetirizin 0,01 mg inj/inf, oppl 750 mg"
+                    }
+                  ]
+                },
+                {
+                  "title": "PllInfo",
+                  "code": {
+                    "coding": [
+                      {
+                        "system": "http://ehelse.no/fhir/CodeSystem/sfm-section-types",
+                        "code": "sectionPLLinfo",
+                        "display": "PLL Info"
+                      }
+                    ]
+                  },
+                  "text": {
+                    "status": "generated",
+                    "div": "<xhtml:div xmlns:xhtml=\"http://www.w3.org/1999/xhtml\"></xhtml:div>"
+                  },
+                  "emptyReason": {
+                    "coding": [
+                      {
+                        "system": "http://terminology.hl7.org/CodeSystem/list-empty-reason",
+                        "code": "unavailable",
+                        "display": "Unavailable"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "title": "Allergies",
+                  "code": {
+                    "coding": [
+                      {
+                        "system": "http://ehelse.no/fhir/CodeSystem/sfm-section-types",
+                        "code": "sectionAllergies",
+                        "display": "Section allergies"
+                      }
+                    ]
+                  },
+                  "text": {
+                    "status": "generated",
+                    "div": "<xhtml:div xmlns:xhtml=\"http://www.w3.org/1999/xhtml\"></xhtml:div>"
+                  },
+                  "emptyReason": {
+                    "coding": [
+                      {
+                        "system": "http://terminology.hl7.org/CodeSystem/list-empty-reason",
+                        "code": "unavailable",
+                        "display": "Unavailable"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "title": "Other Prescriptions",
+                  "code": {
+                    "coding": [
+                      {
+                        "system": "http://ehelse.no/fhir/CodeSystem/sfm-section-types",
+                        "code": "sectionOtherPrescriptions",
+                        "display": "List of non medical prescriptions"
+                      }
+                    ]
+                  },
+                  "text": {
+                    "status": "generated",
+                    "div": "<xhtml:div xmlns:xhtml=\"http://www.w3.org/1999/xhtml\"></xhtml:div>"
+                  },
+                  "emptyReason": {
+                    "coding": [
+                      {
+                        "system": "http://terminology.hl7.org/CodeSystem/list-empty-reason",
+                        "code": "unavailable",
+                        "display": "Unavailable"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "fullUrl": "urn:uuid:5fe73414-d24b-4675-b1ab-714b94265992",
+            "resource": {
+              "resourceType": "Practitioner",
+              "id": "1449217471",
+              "meta": {
+                "profile": [
+                  "http://ehelse.no/fhir/StructureDefinition/sfm-Practitioner"
+                ]
+              },
+              "identifier": [
+                {
+                  "use": "official",
+                  "type": {
+                    "coding": [
+                      {
+                        "system": "http://hl7.no/fhir/NamingSystem/HPR",
+                        "code": "HPR-nummer"
+                      }
+                    ]
+                  },
+                  "system": "urn:oid:2.16.578.1.12.4.1.4.4",
+                  "value": "7479654"
+                },
+                {
+                  "use": "official",
+                  "type": {
+                    "coding": [
+                      {
+                        "system": "http://hl7.no/fhir/NamingSystem/FNR",
+                        "code": "FNR-nummer"
+                      }
+                    ]
+                  },
+                  "system": "urn:oid:2.16.578.1.12.4.1.4.1",
+                  "value": "23048201385"
+                }
+              ],
+              "active": true,
+              "name": [
+                {
+                  "use": "official",
+                  "family": "Hansen",
+                  "given": [
+                    "Jesper Odd"
+                  ]
+                }
+              ],
+              "gender": "female",
+              "birthDate": "1982-04-23"
+            }
+          },
+          {
+            "fullUrl": "urn:uuid:bf31fce2-0a21-4dd4-b9e7-47aa48302ad3",
+            "resource": {
+              "resourceType": "Organization",
+              "id": "462946958",
+              "meta": {
+                "profile": [
+                  "http://ehelse.no/fhir/StructureDefinition/sfm-Organization"
+                ]
+              },
+              "identifier": [
+                {
+                  "use": "official",
+                  "system": "urn:oid:2.16.578.1.12.4.1.2",
+                  "value": "79744"
+                }
+              ]
+            }
+          },
+          {
+            "fullUrl": "urn:uuid:a325b9dc-2aa2-421f-ab93-5bdf99481981",
+            "resource": {
+              "resourceType": "Patient",
+              "id": "718266806",
+              "meta": {
+                "profile": [
+                  "http://ehelse.no/fhir/StructureDefinition/sfm-Patient"
+                ]
+              },
+              "identifier": [
+                {
+                  "use": "official",
+                  "type": {
+                    "coding": [
+                      {
+                        "system": "http://hl7.no/fhir/NamingSystem/FNR",
+                        "code": "FNR-nummer"
+                      }
+                    ]
+                  },
+                  "system": "urn:oid:2.16.578.1.12.4.1.4.1",
+                  "value": "06120182763"
+                }
+              ],
+              "active": true,
+              "name": [
+                {
+                  "family": "Test",
+                  "given": [
+                    "Jeo 48"
+                  ]
+                }
+              ],
+              "gender": "male",
+              "birthDate": "2001-12-06",
+              "address": [
+                {
+                  "type": "postal",
+                  "city": "FAUSKE",
+                  "postalCode": "8200"
+                }
+              ]
+            }
+          },
+          {
+            "fullUrl": "urn:uuid:0363f9d4-5528-435b-a41f-04f1ccc59173",
+            "resource": {
+              "resourceType": "Medication",
+              "id": "1919014596",
+              "meta": {
+                "profile": [
+                  "http://hl7.org/fhir/StructureDefinition/Medication"
+                ]
+              },
+              "extension": [
+                {
+                  "extension": [
+                    {
+                      "url": "prescriptiongroup",
+                      "valueCodeableConcept": {
+                        "coding": [
+                          {
+                            "system": "urn:oid:2.16.578.1.12.4.1.1.7421",
+                            "code": "C",
+                            "display": "Reseptgruppe C"
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "url": "http://hl7.no/fhir/StructureDefinition/no-basis-prescriptiongroup"
+                },
+                {
+                  "extension": [
+                    {
+                      "url": "registreringstype",
+                      "valueCodeableConcept": {
+                        "coding": [
+                          {
+                            "system": "http://ehelse.no/fhir/CodeSystem/sfm-festregistrationtype",
+                            "code": "2",
+                            "display": "Legemiddelmerkevare"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "url": "name",
+                      "valueString": "Glucos. B. Braun"
+                    }
+                  ],
+                  "url": "http://ehelse.no/fhir/StructureDefinition/sfm-medicationdetails"
+                }
+              ],
+              "identifier": [
+                {
+                  "use": "official",
+                  "type": {
+                    "text": "identifier"
+                  },
+                  "value": "ID_B244BA72-8177-430E-94DB-F98063EB3D36"
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://ehelse.no/fhir/CodeSystem/FEST",
+                    "code": "ID_B244BA72-8177-430E-94DB-F98063EB3D36",
+                    "display": "Glucos. B. Braun inf, oppl 200 mg/ml"
+                  },
+                  {
+                    "system": "http://www.whocc.no/atc",
+                    "code": "B05BA03",
+                    "display": "Karbohydrater"
+                  }
+                ]
+              },
+              "status": "active",
+              "form": {
+                "coding": [
+                  {
+                    "system": "urn:oid:2.16.578.1.12.4.1.1.7448",
+                    "code": "858",
+                    "display": "Infusjonsvæske, oppløsning"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "fullUrl": "urn:uuid:2046c422-e4ab-448b-a7d5-a76cdcc41e36",
+            "resource": {
+              "resourceType": "Substance",
+              "id": "37193376",
+              "meta": {
+                "profile": [
+                  "http://ehelse.no/fhir/StructureDefinition/sfm-Substance"
+                ]
+              },
+              "identifier": [
+                {
+                  "use": "official",
+                  "type": {
+                    "text": "identifier"
+                  },
+                  "value": "ID_9132CC79-2D51-4E6E-91CD-DA9F1D62C125"
+                }
+              ],
+              "status": "active",
+              "code": {
+                "coding": [
+                  {
+                    "system": "http://ehelse.no/fhir/CodeSystem/FEST",
+                    "code": "ID_9132CC79-2D51-4E6E-91CD-DA9F1D62C125",
+                    "display": "Cetirizin"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "fullUrl": "urn:uuid:f874c81b-b1ce-4da3-966f-652fe569c5dd",
+            "resource": {
+              "resourceType": "Medication",
+              "id": "43033452",
+              "meta": {
+                "profile": [
+                  "http://ehelse.no/fhir/StructureDefinition/sfm-Magistrell-Medication"
+                ]
+              },
+              "extension": [
+                {
+                  "url": "http://hl7.no/fhir/StructureDefinition/no-basis-prescriptiongroup",
+                  "valueCodeableConcept": {
+                    "coding": [
+                      {
+                        "system": "urn:oid:2.16.578.1.12.4.1.1.7421",
+                        "code": "C",
+                        "display": "Reseptgruppe C"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "url": "http://ehelse.no/fhir/StructureDefinition/sfm-name",
+                  "valueString": "Glucos. B. Braun inf, oppl 200 mg/ml ad, Cetirizin 0,01 mg inj/inf, oppl 750 mg"
+                },
+                {
+                  "url": "http://ehelse.no/fhir/StructureDefinition/sfm-recipe",
+                  "valueString": "prcip"
+                }
+              ],
+              "code": {
+                "coding": [
+                  {
+                    "system": "urn:oid:2.16.578.1.12.4.1.1.7424",
+                    "code": "10",
+                    "display": "Magistrell"
+                  }
+                ]
+              },
+              "status": "active",
+              "form": {
+                "coding": [
+                  {
+                    "system": "urn:oid:2.16.578.1.12.4.1.1.7448",
+                    "code": "880",
+                    "display": "inj/inf, oppl"
+                  }
+                ]
+              },
+              "amount": {
+                "numerator": {
+                  "value": 750.0,
+                  "unit": "mg"
+                }
+              },
+              "ingredient": [
+                {
+                  "extension": [
+                    {
+                      "extension": [
+                        {
+                          "url": "ad",
+                          "valueBoolean": true
+                        }
+                      ],
+                      "url": "http://ehelse.no/fhir/StructureDefinition/sfm-adqs"
+                    }
+                  ],
+                  "itemReference": {
+                    "reference": "urn:uuid:0363f9d4-5528-435b-a41f-04f1ccc59173",
+                    "type": "http://ehelse.no/fhir/StructureDefinition/sfm-Medication",
+                    "display": "Glucos. B. Braun inf, oppl 200 mg/ml"
+                  },
+                  "isActive": false
+                },
+                {
+                  "itemReference": {
+                    "reference": "urn:uuid:2046c422-e4ab-448b-a7d5-a76cdcc41e36",
+                    "type": "http://ehelse.no/fhir/StructureDefinition/sfm-Substance",
+                    "display": "Cetirizin"
+                  },
+                  "isActive": true,
+                  "strength": {
+                    "numerator": {
+                      "value": 0.01,
+                      "unit": "mg"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "fullUrl": "urn:uuid:437a6ba7-90a1-467b-8feb-a9dbbe505d40",
+            "resource": {
+              "resourceType": "MedicationStatement",
+              "id": "1268666092",
+              "meta": {
+                "profile": [
+                  "http://ehelse.no/fhir/StructureDefinition/sfm-MedicationStatement"
+                ]
+              },
+              "extension": [
+                {
+                  "extension": [
+                    {
+                      "url": "reseptdate",
+                      "valueDate": "2023-12-06"
+                    },
+                    {
+                      "url": "expirationdate",
+                      "valueDate": "2024-12-05"
+                    },
+                    {
+                      "url": "festUpdate",
+                      "valueDateTime": "2023-11-24T11:58:58+00:00"
+                    },
+                    {
+                      "url": "dssn",
+                      "valueString": "1"
+                    },
+                    {
+                      "url": "numberofpackages",
+                      "valueDecimal": 2.0
+                    },
+                    {
+                      "url": "reit",
+                      "valueString": "0"
+                    },
+                    {
+                      "url": "itemgroup",
+                      "valueCodeableConcept": {
+                        "coding": [
+                          {
+                            "system": "urn:oid:2.16.578.1.12.4.1.1.7402",
+                            "code": "L",
+                            "display": "Legemiddel"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "extension": [
+                        {
+                          "url": "status",
+                          "valueCodeableConcept": {
+                            "coding": [
+                              {
+                                "system": "urn:oid:2.16.578.1.12.4.1.1.7408",
+                                "code": "E",
+                                "display": "Ekspederbar"
+                              }
+                            ]
+                          }
+                        }
+                      ],
+                      "url": "rfstatus"
+                    },
+                    {
+                      "url": "typeresept",
+                      "valueCodeableConcept": {
+                        "coding": [
+                          {
+                            "system": "urn:oid:2.16.578.1.12.4.1.1.7491",
+                            "code": "E",
+                            "display": "Eresept"
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "url": "http://ehelse.no/fhir/StructureDefinition/sfm-reseptamendment"
+                },
+                {
+                  "extension": [
+                    {
+                      "url": "status",
+                      "valueCodeableConcept": {
+                        "coding": [
+                          {
+                            "system": "http://ehelse.no/fhir/CodeSystem/sfm-medicationstatement-registration-status",
+                            "code": "3",
+                            "display": "Godkjent"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "url": "type",
+                      "valueCodeableConcept": {
+                        "coding": [
+                          {
+                            "system": "http://ehelse.no/fhir/CodeSystem/sfm-performer-roles",
+                            "code": "1",
+                            "display": "Forskrevet av"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "url": "provider",
+                      "valueReference": {
+                        "reference": "urn:uuid:5fe73414-d24b-4675-b1ab-714b94265992",
+                        "type": "http://ehelse.no/fhir/StructureDefinition/sfm-Practitioner",
+                        "display": "Jesper Odd Hansen, HPR: 7479654"
+                      }
+                    },
+                    {
+                      "url": "timestamp",
+                      "valueDateTime": "2023-12-06T13:36:36.658+01:00"
+                    }
+                  ],
+                  "url": "http://ehelse.no/fhir/StructureDefinition/sfm-regInfo"
+                },
+                {
+                  "extension": [
+                    {
+                      "url": "genericSubstitutionAccepted",
+                      "valueBoolean": true
+                    }
+                  ],
+                  "url": "http://ehelse.no/fhir/StructureDefinition/sfm-generic-substitution"
+                }
+              ],
+              "identifier": [
+                {
+                  "use": "usual",
+                  "type": {
+                    "text": "ReseptId"
+                  },
+                  "value": "7fd3e0c6-1c19-4e0b-b60d-dd006d1ce5d0"
+                }
+              ],
+              "status": "active",
+              "medicationReference": {
+                "reference": "urn:uuid:f874c81b-b1ce-4da3-966f-652fe569c5dd",
+                "type": "http://ehelse.no/fhir/StructureDefinition/sfm-Magistrell-Medication",
+                "display": "Glucos. B. Braun inf, oppl 200 mg/ml ad, Cetirizin 0,01 mg inj/inf, oppl 750 mg"
+              },
+              "subject": {
+                "reference": "urn:uuid:a325b9dc-2aa2-421f-ab93-5bdf99481981",
+                "type": "http://ehelse.no/fhir/StructureDefinition/sfm-Patient",
+                "display": "Jeo 48 Test"
+              },
+              "dosage": [
+                {
+                  "extension": [
+                    {
+                      "url": "http://ehelse.no/fhir/StructureDefinition/sfm-use",
+                      "valueCodeableConcept": {
+                        "coding": [
+                          {
+                            "system": "urn:oid:2.16.578.1.12.4.1.1.9101",
+                            "code": "1",
+                            "display": "Fast"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "extension": [
+                        {
+                          "url": "text",
+                          "valueString": "1"
+                        }
+                      ],
+                      "url": "http://ehelse.no/fhir/StructureDefinition/sfm-application-area"
+                    }
+                  ],
+                  "sequence": 1,
+                  "text": "1"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "KJHentetTidspunkt",
+      "valueDateTime": "2023-12-06T14:13:03.7904472+01:00"
+    },
+    {
+      "name": "RFHentetTidspunkt",
+      "valueDateTime": "2023-12-06T14:13:03.689+01:00"
+    },
+    {
+      "name": "KJFeilkode",
+      "valueCodeableConcept": {
+        "coding": [
+          {
+            "system": "http://ehelse.no/fhir/CodeSystem/sfm-kj-rf-error-code",
+            "code": "5",
+            "display": "Ingen rettighet til KJ oppslag"
+          }
+        ],
+        "text": "TraceID: c5772b8249e497e5eab50b4dfaa35d61. Error: The HTTP status code of the response was not expected (400).\n\nStatus: 400\nResponse: \n{\n  \"status\" : 400,\n  \"feilkode\" : \"KJF-000206\",\n  \"utviklermelding\" : \"Ugyldig input\",\n  \"brukermelding\" : \"Teknisk feil. Vennligst prøv igjen. KJF-000206\",\n  \"quamquisullamcorper\" : \"Ukjent felt skal støttes av konsument\"\n}"
+      }
+    },
+    {
+      "name": "RFM96Feilkode",
+      "valueCodeableConcept": {
+        "coding": [
+          {
+            "system": "http://ehelse.no/fhir/CodeSystem/sfm-kj-rf-error-code",
+            "code": "0",
+            "display": "OK"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RFM912Feilkode",
+      "valueCodeableConcept": {
+        "coding": [
+          {
+            "system": "http://ehelse.no/fhir/CodeSystem/sfm-kj-rf-error-code",
+            "code": "0",
+            "display": "OK"
+          }
+        ]
+      }
+    },
+    {
+      "name": "KJHarLegemidler",
+      "valueBoolean": false
+    },
+    {
+      "name": "KJHarLaste",
+      "valueBoolean": false
+    },
+    {
+      "name": "RFHarLaste",
+      "valueBoolean": false
+    }
+  ]
+}
