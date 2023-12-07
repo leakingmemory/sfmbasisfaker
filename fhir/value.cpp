@@ -16,12 +16,11 @@ std::shared_ptr<FhirString> FhirString::Parse(web::json::value value) {
     return std::make_shared<FhirString>(value.as_string());
 }
 
-std::shared_ptr<FhirValue> FhirValue::Parse(const web::json::value &propertyName, const web::json::value &property) {
-    auto str = propertyName.as_string();
-    if (str == FhirString::PropertyName()) {
+std::shared_ptr<FhirValue> FhirValue::Parse(const std::string &propertyName, const web::json::value &property) {
+    if (propertyName == FhirString::PropertyName()) {
         return FhirString::Parse(property);
     }
-    if (str == FhirCodeableConceptValue::PropertyName()) {
+    if (propertyName == FhirCodeableConceptValue::PropertyName()) {
         return FhirCodeableConceptValue::Parse(property);
     }
     throw std::exception();

@@ -8,7 +8,8 @@ find_package(cpprestsdk REQUIRED)
 add_subdirectory(fhir)
 
 add_executable(sfmbasisfaker main.cpp
-        tests/valuetest.cpp)
+        tests/valuetest.cpp
+        include/fhir/medication.h)
 
 target_link_libraries(sfmbasisfaker PRIVATE libfhir)
 target_include_directories(sfmbasisfaker PRIVATE include)
