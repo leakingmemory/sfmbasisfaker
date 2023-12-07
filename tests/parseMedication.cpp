@@ -24,6 +24,6 @@ int main(int argc, char **argv) {
     auto medication = FhirMedication::Parse(web::json::value::parse(json));
     AreEqual("Medication", medication.GetResourceType());
     AreEqual("43033452", medication.GetId());
-    AreEqual("http://ehelse.no/fhir/StructureDefinition/sfm-Magistrell-Medication", medication.GetProfile());
+    AreEqual("http://ehelse.no/fhir/StructureDefinition/sfm-Magistrell-Medication", medication.GetProfile().at(0));
     AreEqual((int) FhirStatus::ACTIVE, (int) medication.GetStatus());
 }

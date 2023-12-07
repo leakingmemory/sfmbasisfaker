@@ -11,4 +11,4 @@ target_include_directories(parseMedication PRIVATE ../include)
 target_link_libraries(parseMedication PRIVATE libfhir)
 target_link_libraries(parseMedication PRIVATE cpprestsdk::cpprest -lcrypto)
 
-add_test(NAME ParseMedicationMagistral COMMAND parseMedication "${CMAKE_SOURCE_DIR}/data/nhnfhir/magistral/magistral-deication.json" magistral)
+add_test(NAME ParseMedicationMagistral COMMAND parseMedication "${CMAKE_SOURCE_DIR}/tests/data/nhnfhir/magistral/magistral-medication.json" magistral)

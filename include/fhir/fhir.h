@@ -70,7 +70,7 @@ class Fhir : public FhirObject {
 private:
     std::string resourceType{};
     std::string id{};
-    std::string profile{};
+    std::vector<std::string> profile{};
     FhirStatus status{};
     std::vector<std::shared_ptr<FhirExtension>> extensions{};
 protected:
@@ -83,7 +83,7 @@ public:
     [[nodiscard]] std::string GetId() const {
         return id;
     }
-    [[nodiscard]] std::string GetProfile() const {
+    [[nodiscard]] std::vector<std::string> GetProfile() const {
         return profile;
     }
     [[nodiscard]] FhirStatus GetStatus() const {

@@ -56,3 +56,37 @@ FhirGenericExtension::FhirGenericExtension(const web::json::value &json) : FhirE
 web::json::value FhirGenericExtension::ToJson() const {
     return json;
 }
+
+
+bool Fhir::ParseInline(const web::json::value &json) {
+    if (json.has_string_field("resourceType")) {
+        resourceType = json.at("resourceType").as_string();
+    }
+    if (json.has_string_field("id")) {
+        id = json.at("id").as_string();
+    }
+    if (json.has_object_field("meta")) {
+        auto meta = json.at("meta");
+        if (meta.has_array_field("profile")) {
+            for (const auto &p : meta.at("profile").as_array()) {
+                if (p.is_string()) {
+                    profile.emplace_back(p.as_string());
+                }
+            }
+        }
+    }
+    if (json.has_string_field("status")) {
+        auto s = json.at("status").as_string();
+        if (s == "active") {
+            status = FhirStatus::ACTIVE;
+        } else {
+            throw std::exception();
+        }
+    }
+    if (json.has_array_field("extension")) {
+        for (const auto &ext : json.at("extension").as_array()) {
+            extensions.emplace_back(FhirExtension::Parse(ext));
+        }
+    }
+    return true;
+}
