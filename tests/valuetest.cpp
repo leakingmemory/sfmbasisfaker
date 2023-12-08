@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include <fhir/value.h>
+#include <fhir/dosage.h>
 #include "assert.h"
 
 int main() {
@@ -76,6 +77,12 @@ int main() {
         AreEqual("text", output.GetType().GetText());
         AreEqual("use", output.GetUse());
         AreEqual("value", output.GetValue());
+    }
+    {
+        auto input = FhirDosage("text", 3);
+        auto output = FhirDosage::Parse(input.ToJson());
+        AreEqual("text", output.GetText());
+        AreEqual(3, output.GetSequence());
     }
 
     /*
