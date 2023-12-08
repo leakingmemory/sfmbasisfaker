@@ -15,8 +15,13 @@ web::json::value FhirPerson::ToJson() const {
         obj["identifier"] = arr;
     }
     obj["active"] = web::json::value::boolean(active);
-    if (name.IsSet()) {
-        obj["name"] = name.ToJson();
+    if (!name.empty()) {
+        auto arr = web::json::value::array(name.size());
+        typeof(name.size()) i = 0;
+        for (const auto &n : name) {
+            arr[i++] = n.ToJson();
+        }
+        obj["name"] = arr;
     }
     if (!gender.empty()) {
         obj["gender"] = web::json::value::string(gender);
@@ -53,8 +58,10 @@ FhirPerson FhirPerson::Parse(const web::json::value &obj) {
         practitioner.active = obj.at("active").as_bool();
     }
 
-    if(obj.has_object_field("name")) {
-        practitioner.name = FhirName::Parse(obj.at("name"));
+    if(obj.has_array_field("name")) {
+        for (const auto &n : obj.at("name").as_array()) {
+            practitioner.name.emplace_back(FhirName::Parse(n));
+        }
     }
 
     if(obj.has_string_field("gender")) {

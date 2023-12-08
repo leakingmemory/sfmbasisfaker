@@ -12,13 +12,13 @@ class FhirPerson : public Fhir {
 private:
     std::vector<FhirIdentifier> identifiers{};
     std::vector<FhirAddress> address{};
-    FhirName name{};
+    std::vector<FhirName> name{};
     std::string gender{};
     std::string birthDate{};
     bool active{false};
 public:
     [[nodiscard]] std::vector<FhirIdentifier> GetIdentifiers() const { return identifiers; }
-    [[nodiscard]] FhirName GetName() const { return name; }
+    [[nodiscard]] std::vector<FhirName> GetName() const { return name; }
     [[nodiscard]] std::string GetGender() const { return gender; }
     [[nodiscard]] std::string GetBirthDate() const { return birthDate; }
     bool IsActive() const { return active; }
