@@ -15,7 +15,9 @@ add_executable(sfmbasisfaker main.cpp
         include/fhir/compositionsection.h
         include/fhir/person.h
         include/fhir/organization.h
-        include/fhir/substance.h)
+        include/fhir/substance.h
+        include/fhir/parameter.h
+        include/fhir/parameters.h)
 
 target_link_libraries(sfmbasisfaker PRIVATE libfhir)
 target_include_directories(sfmbasisfaker PRIVATE include)

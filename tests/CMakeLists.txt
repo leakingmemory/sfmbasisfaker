@@ -26,3 +26,10 @@ target_link_libraries(parseBundle PRIVATE libfhir)
 target_link_libraries(parseBundle PRIVATE cpprestsdk::cpprest -lcrypto)
 
 add_test(NAME ParseBundleMagistral COMMAND parseBundle "${CMAKE_SOURCE_DIR}/tests/data/nhnfhir/magistral/magistral-bundle.json" magistral)
+
+add_executable(parseGetmed assert.cpp parseGetmed.cpp)
+target_include_directories(parseGetmed PRIVATE ../include)
+target_link_libraries(parseGetmed PRIVATE libfhir)
+target_link_libraries(parseGetmed PRIVATE cpprestsdk::cpprest -lcrypto)
+
+add_test(NAME ParseGetmed COMMAND parseGetmed "${CMAKE_SOURCE_DIR}/tests/data/nhnfhir/requests/getmed.json" magistral)
