@@ -12,7 +12,8 @@
 
 enum class FhirStatus {
     NOT_SET,
-    ACTIVE
+    ACTIVE,
+    FINAL
 };
 
 class FhirValue : public FhirObject {
@@ -50,13 +51,14 @@ private:
     std::string lastUpdated{};
     std::string source{};
     std::vector<std::string> profile{};
-    std::string type{};
     std::string timestamp{};
+    std::string date{};
     FhirStatus status{FhirStatus::NOT_SET};
 protected:
     bool ParseInline(const web::json::value &json);
 public:
     web::json::value ToJson() const;
+    static std::shared_ptr<Fhir> Parse(const web::json::value &obj);
     virtual ~Fhir() = default;
     [[nodiscard]] std::string GetResourceType() const {
         return resourceType;
@@ -73,11 +75,11 @@ public:
     [[nodiscard]] std::vector<std::string> GetProfile() const {
         return profile;
     }
-    [[nodiscard]] std::string GetType() const {
-        return type;
-    }
     [[nodiscard]] std::string GetTimestamp() const {
         return timestamp;
+    }
+    [[nodiscard]] std::string GetDate() const {
+        return date;
     }
     [[nodiscard]] FhirStatus GetStatus() const {
         return status;

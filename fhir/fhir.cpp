@@ -49,10 +49,18 @@ bool Fhir::ParseInline(const web::json::value &json) {
             }
         }
     }
+    if (json.has_string_field("timestamp")) {
+        timestamp = json.at("timestamp").as_string();
+    }
+    if (json.has_string_field("date")) {
+        date = json.at("date").as_string();
+    }
     if (json.has_string_field("status")) {
         auto s = json.at("status").as_string();
         if (s == "active") {
             status = FhirStatus::ACTIVE;
+        } else if (s == "final") {
+            status = FhirStatus::FINAL;
         } else {
             throw std::exception();
         }
@@ -86,17 +94,20 @@ web::json::value Fhir::ToJson() const {
         }
         obj["meta"] = meta;
     }
-    if (!type.empty()) {
-        obj["type"] = web::json::value::string(type);
-    }
     if (!timestamp.empty()) {
         obj["timestamp"] = web::json::value::string(timestamp);
+    }
+    if (!date.empty()) {
+        obj["date"] = web::json::value::string(date);
     }
     switch (status) {
         case FhirStatus::NOT_SET:
             break;
         case FhirStatus::ACTIVE:
             obj["status"] = web::json::value::string("active");
+            break;
+        case FhirStatus::FINAL:
+            obj["status"] = web::json::value::string("final");
             break;
     }
     return obj;

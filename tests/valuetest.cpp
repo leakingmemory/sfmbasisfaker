@@ -90,6 +90,14 @@ int main() {
         AreEqual("relation", output.GetRelation());
         AreEqual("testRef", output.GetUrl());
     }
+    {
+        auto input = FhirName("use", "familyName", "givenName");
+        auto output = FhirName::Parse(input.ToJson());
+        AreEqual("use", output.GetUse());
+        AreEqual("familyName", output.GetFamily());
+        AreEqual("givenName", output.GetGiven());
+    }
+
 
     /*
      * Value extension:

@@ -28,18 +28,29 @@ std::shared_ptr<FhirValue> FhirValue::Parse(const std::string &propertyName, con
 
 web::json::value FhirCoding::ToJson() const {
     auto obj = FhirObject::ToJson();
-    obj["system"] = web::json::value::string(system);
-    obj["code"] = web::json::value::string(code);
-    obj["display"] = web::json::value::string(display);
+    if (!system.empty())
+        obj["system"] = web::json::value::string(system);
+    if (!code.empty())
+        obj["code"] = web::json::value::string(code);
+    if (!display.empty())
+        obj["display"] = web::json::value::string(display);
     return obj;
 }
 
 FhirCoding FhirCoding::Parse(const web::json::value &obj) {
-    return FhirCoding(
-            obj.at("system").as_string(),
-            obj.at("code").as_string(),
-            obj.at("display").as_string()
-            );
+    std::string system{};
+    if (obj.has_string_field("system")) {
+        system = obj.at("system").as_string();
+    }
+    std::string code{};
+    if (obj.has_string_field("code")) {
+        code = obj.at("code").as_string();
+    }
+    std::string display{};
+    if (obj.has_string_field("display")) {
+        display = obj.at("display").as_string();
+    }
+    return {std::move(system), std::move(code), std::move(display)};
 }
 
 web::json::value FhirCodeableConcept::ToJson() const {
@@ -211,4 +222,69 @@ FhirLink FhirLink::Parse(const web::json::value &obj) {
     }
 
     return {std::move(relation), std::move(url)};
+}
+
+web::json::value FhirName::ToJson() const {
+    auto obj = FhirObject::ToJson();
+    if (!use.empty()) {
+        obj["use"] = web::json::value::string(use);
+    }
+    if (!family.empty()) {
+        obj["family"] = web::json::value::string(family);
+    }
+    if (!given.empty()) {
+        auto arr = web::json::value::array(1);
+        arr[0] = web::json::value::string(given);
+        obj["given"] = arr;
+    }
+    return obj;
+}
+
+FhirName FhirName::Parse(const web::json::value &obj) {
+    FhirName name{};
+
+    if (obj.has_string_field("use")) {
+        name.use = obj.at("use").as_string();
+    }
+    if (obj.has_string_field("family")) {
+        name.family = obj.at("family").as_string();
+    }
+    if (obj.has_array_field("given")) {
+        name.given = obj.at("given").as_array().at(0).as_string();
+    }
+
+    return name;
+}
+
+web::json::value FhirAddress::ToJson() const {
+    auto obj = FhirObject::ToJson();
+    if (!type.empty()) {
+        obj["type"] = web::json::value::string(type);
+    }
+    if (!city.empty()) {
+        obj["city"] = web::json::value::string(city);
+    }
+    if (!postalCode.empty()) {
+        obj["postalCode"] = web::json::value::string(postalCode);
+    }
+    return obj;
+}
+
+FhirAddress FhirAddress::Parse(const web::json::value &obj) {
+    std::string type{};
+    if (obj.has_string_field("type")) {
+        type = obj.at("type").as_string();
+    }
+
+    std::string city{};
+    if (obj.has_string_field("city")) {
+        city = obj.at("city").as_string();
+    }
+
+    std::string postalCode{};
+    if (obj.has_string_field("postalCode")) {
+        postalCode = obj.at("postalCode").as_string();
+    }
+
+    return {std::move(type), std::move(city), std::move(postalCode)};
 }

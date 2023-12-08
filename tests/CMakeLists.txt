@@ -19,3 +19,10 @@ target_link_libraries(parseMedicationStatement PRIVATE libfhir)
 target_link_libraries(parseMedicationStatement PRIVATE cpprestsdk::cpprest -lcrypto)
 
 add_test(NAME ParseMedicationStatementMagistral COMMAND parseMedicationStatement "${CMAKE_SOURCE_DIR}/tests/data/nhnfhir/magistral/magistral-medication-statement.json" magistral)
+
+add_executable(parseBundle assert.cpp parseBundle.cpp)
+target_include_directories(parseBundle PRIVATE ../include)
+target_link_libraries(parseBundle PRIVATE libfhir)
+target_link_libraries(parseBundle PRIVATE cpprestsdk::cpprest -lcrypto)
+
+add_test(NAME ParseBundleMagistral COMMAND parseBundle "${CMAKE_SOURCE_DIR}/tests/data/nhnfhir/magistral/magistral-bundle.json" magistral)

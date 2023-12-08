@@ -9,7 +9,13 @@ find_package(cpprestsdk REQUIRED)
 add_subdirectory(fhir)
 
 add_executable(sfmbasisfaker main.cpp
-        include/fhir/bundle.h)
+        include/fhir/bundle.h
+        include/fhir/bundleentry.h
+        include/fhir/composition.h
+        include/fhir/compositionsection.h
+        include/fhir/person.h
+        include/fhir/organization.h
+        include/fhir/substance.h)
 
 target_link_libraries(sfmbasisfaker PRIVATE libfhir)
 target_include_directories(sfmbasisfaker PRIVATE include)

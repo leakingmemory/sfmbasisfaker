@@ -33,6 +33,8 @@ private:
 public:
     FhirCoding(const std::string &system, const std::string &code, const std::string &display) :
         system(system), code(code), display(display) {}
+    FhirCoding(std::string &&system, std::string &&code, std::string &&display) :
+            system(std::move(system)), code(std::move(code)), display(std::move(display)) {}
     web::json::value ToJson() const override;
     static FhirCoding Parse(const web::json::value &obj);
     std::string GetSystem() const {
@@ -204,6 +206,64 @@ public:
     }
     web::json::value ToJson() const;
     static FhirLink Parse(const web::json::value &obj);
+};
+
+class FhirName : public FhirObject {
+private:
+    std::string use{};
+    std::string family{};
+    std::string given{};
+public:
+    FhirName() : use(), family(), given() {}
+
+    FhirName(const std::string &use, const std::string &family, const std::string &given)
+    : use(use), family(family), given(given) {}
+
+    FhirName(std::string &&use, std::string &&family, std::string &&given)
+    : use(std::move(use)), family(std::move(family)), given(std::move(given)) {}
+
+    [[nodiscard]] std::string GetUse() const {
+        return use;
+    }
+    [[nodiscard]] std::string GetFamily() const {
+        return family;
+    }
+    [[nodiscard]] std::string GetGiven() const {
+        return given;
+    }
+    bool IsSet() const {
+        return !use.empty() || !family.empty() || !given.empty();
+    }
+    web::json::value ToJson() const;
+    static FhirName Parse(const web::json::value &obj);
+};
+
+class FhirAddress : public FhirObject {
+private:
+    std::string type{};
+    std::string city{};
+    std::string postalCode{};
+public:
+    FhirAddress() : type(), city(), postalCode() {}
+
+    FhirAddress(const std::string &type, const std::string &city, const std::string &postalCode):
+        type(type), city(city), postalCode(postalCode) {}
+
+    FhirAddress(std::string &&type, std::string &&city, std::string &&postalCode):
+        type(std::move(type)), city(std::move(city)), postalCode(std::move(postalCode)) {}
+
+    [[nodiscard]] std::string GetType() const {
+        return type;
+    }
+    [[nodiscard]] std::string GetCity() const {
+        return city;
+    }
+    [[nodiscard]] std::string GetPostalCode() const {
+        return postalCode;
+    }
+
+    web::json::value ToJson() const;
+    static FhirAddress Parse(const web::json::value &obj);
 };
 
 #endif //SFMBASISFAKER_VALUE_H
