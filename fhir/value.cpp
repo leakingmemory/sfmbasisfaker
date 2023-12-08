@@ -267,6 +267,17 @@ web::json::value FhirAddress::ToJson() const {
     if (!postalCode.empty()) {
         obj["postalCode"] = web::json::value::string(postalCode);
     }
+    if (!lines.empty()) {
+        auto arr = web::json::value::array(lines.size());
+        typeof(lines.size()) i = 0;
+        for (const auto &line : lines) {
+            arr[i++] = web::json::value::string(line);
+        }
+        obj["line"] = arr;
+    }
+    if (!use.empty()) {
+        obj["use"] = web::json::value::string(use);
+    }
     return obj;
 }
 
@@ -286,5 +297,17 @@ FhirAddress FhirAddress::Parse(const web::json::value &obj) {
         postalCode = obj.at("postalCode").as_string();
     }
 
-    return {std::move(type), std::move(city), std::move(postalCode)};
+    std::vector<std::string> lines{};
+    if (obj.has_array_field("line")) {
+        for (const auto &line : obj.at("line").as_array()) {
+            lines.emplace_back(line.as_string());
+        }
+    }
+
+    std::string use{};
+    if (obj.has_string_field("use")) {
+        use = obj.at("use").as_string();
+    }
+
+    return {std::move(lines), std::move(use), std::move(type), std::move(city), std::move(postalCode)};
 }

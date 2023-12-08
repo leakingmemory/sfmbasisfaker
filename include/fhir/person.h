@@ -19,6 +19,7 @@ private:
 public:
     [[nodiscard]] std::vector<FhirIdentifier> GetIdentifiers() const { return identifiers; }
     [[nodiscard]] std::vector<FhirName> GetName() const { return name; }
+    [[nodiscard]] std::vector<FhirAddress> GetAddress() const { return address; }
     [[nodiscard]] std::string GetGender() const { return gender; }
     [[nodiscard]] std::string GetBirthDate() const { return birthDate; }
     bool IsActive() const { return active; }

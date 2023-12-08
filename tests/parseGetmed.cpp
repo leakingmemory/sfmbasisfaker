@@ -30,4 +30,15 @@ int main(int argc, char **argv) {
     AreEqual(true, resource.operator bool());
     auto patient = std::dynamic_pointer_cast<FhirPerson>(resource);
     AreEqual(true, patient.operator bool());
+    AreEqual(1, patient->GetIdentifiers().size());
+    AreEqual("06120182763", patient->GetIdentifiers().at(0).GetValue());
+    AreEqual(1, patient->GetAddress().size());
+    auto address = patient->GetAddress().at(0);
+    AreEqual("home", address.GetUse());
+    AreEqual("physical", address.GetType());
+    AreEqual(1, address.GetLines().size());
+    auto line = address.GetLines().at(0);
+    AreEqual("Testveien 1", line);
+    AreEqual("Oslo", address.GetCity());
+    AreEqual("1234", address.GetPostalCode());
 }

@@ -240,18 +240,26 @@ public:
 
 class FhirAddress : public FhirObject {
 private:
+    std::vector<std::string> lines{};
+    std::string use{};
     std::string type{};
     std::string city{};
     std::string postalCode{};
 public:
-    FhirAddress() : type(), city(), postalCode() {}
+    FhirAddress() = default;
 
-    FhirAddress(const std::string &type, const std::string &city, const std::string &postalCode):
-        type(type), city(city), postalCode(postalCode) {}
+    FhirAddress(const std::vector<std::string> &lines, const std::string &use, const std::string &type, const std::string &city, const std::string &postalCode):
+        lines(lines), use(use), type(type), city(city), postalCode(postalCode) {}
 
-    FhirAddress(std::string &&type, std::string &&city, std::string &&postalCode):
-        type(std::move(type)), city(std::move(city)), postalCode(std::move(postalCode)) {}
+    FhirAddress(std::vector<std::string> &&lines, std::string &&use, std::string &&type, std::string &&city, std::string &&postalCode):
+        lines(std::move(lines)), use(std::move(use)), type(std::move(type)), city(std::move(city)), postalCode(std::move(postalCode)) {}
 
+    [[nodiscard]] std::vector<std::string> GetLines() const {
+        return lines;
+    }
+    [[nodiscard]] std::string GetUse() const {
+        return use;
+    }
     [[nodiscard]] std::string GetType() const {
         return type;
     }
