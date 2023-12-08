@@ -158,4 +158,31 @@ public:
     static FhirReference Parse(const web::json::value &obj);
 };
 
+class FhirIdentifier : public FhirObject {
+private:
+    FhirCodeableConcept type;
+    std::string use;
+    std::string value;
+public:
+    FhirIdentifier() : type(), use(), value() {}
+    FhirIdentifier(const FhirCodeableConcept &type, const std::string &use, const std::string &value)
+        : type(type), use(use), value(value) {}
+    FhirIdentifier(FhirCodeableConcept &&type, std::string &&use, std::string &&value)
+        : type(std::move(type)), use(std::move(use)), value(std::move(value)) {}
+    [[nodiscard]] std::string GetUse() const {
+        return use;
+    }
+    [[nodiscard]] FhirCodeableConcept GetType() const {
+        return type;
+    }
+    [[nodiscard]] std::string GetValue() const {
+        return value;
+    }
+    bool IsSet() const {
+        return !use.empty() || type.IsSet() || !value.empty();
+    }
+    web::json::value ToJson() const;
+    static FhirIdentifier Parse(const web::json::value &obj);
+};
+
 #endif //SFMBASISFAKER_VALUE_H

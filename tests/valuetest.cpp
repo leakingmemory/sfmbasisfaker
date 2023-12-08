@@ -70,6 +70,13 @@ int main() {
         AreEqual("ReferenceType", output.GetType());
         AreEqual("Reference Display", output.GetDisplay());
     }
+    {
+        auto input = FhirIdentifier(FhirCodeableConcept("text"), "use", "value");
+        auto output = FhirIdentifier::Parse(input.ToJson());
+        AreEqual("text", output.GetType().GetText());
+        AreEqual("use", output.GetUse());
+        AreEqual("value", output.GetValue());
+    }
 
     /*
      * Value extension:

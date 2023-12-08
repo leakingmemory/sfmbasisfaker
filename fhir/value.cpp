@@ -160,3 +160,30 @@ FhirReference FhirReference::Parse(const web::json::value &obj) {
 
     return {std::move(reference), std::move(type), std::move(display)};
 }
+
+web::json::value FhirIdentifier::ToJson() const {
+    auto obj = FhirObject::ToJson();
+    obj["use"] = web::json::value::string(use);
+    obj["type"] = type.ToJson();
+    obj["value"] = web::json::value::string(value);
+    return obj;
+}
+
+FhirIdentifier FhirIdentifier::Parse(const web::json::value &obj) {
+    std::string use{};
+    if (obj.has_string_field("use")) {
+        use = obj.at("use").as_string();
+    }
+
+    FhirCodeableConcept type{};
+    if (obj.has_object_field("type")) {
+        type = FhirCodeableConcept::Parse(obj.at("type"));
+    }
+
+    std::string value{};
+    if (obj.has_string_field("value")) {
+        value = obj.at("value").as_string();
+    }
+
+    return {std::move(type), std::move(use), std::move(value)};
+}
