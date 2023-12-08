@@ -185,4 +185,25 @@ public:
     static FhirIdentifier Parse(const web::json::value &obj);
 };
 
+class FhirLink : public FhirObject {
+private:
+    std::string relation;
+    std::string url;
+public:
+    FhirLink() : relation(), url() {}
+    FhirLink(const std::string& relation, const std::string& url) : relation(relation), url(url) {}
+    FhirLink(std::string&& relation, std::string&& url) : relation(std::move(relation)), url(std::move(url)) {}
+    [[nodiscard]] std::string GetRelation() const {
+        return relation;
+    }
+    [[nodiscard]] std::string GetUrl() const {
+        return url;
+    }
+    bool IsSet() const {
+        return !relation.empty() || !url.empty();
+    }
+    web::json::value ToJson() const;
+    static FhirLink Parse(const web::json::value &obj);
+};
+
 #endif //SFMBASISFAKER_VALUE_H

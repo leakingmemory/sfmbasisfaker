@@ -187,3 +187,28 @@ FhirIdentifier FhirIdentifier::Parse(const web::json::value &obj) {
 
     return {std::move(type), std::move(use), std::move(value)};
 }
+
+web::json::value FhirLink::ToJson() const {
+    auto obj = FhirObject::ToJson();
+    if (!relation.empty()) {
+        obj["relation"] = web::json::value::string(relation);
+    }
+    if (!url.empty()) {
+        obj["url"] = web::json::value::string(url);
+    }
+    return obj;
+}
+
+FhirLink FhirLink::Parse(const web::json::value &obj) {
+    std::string relation{};
+    if (obj.has_string_field("relation")) {
+        relation = obj.at("relation").as_string();
+    }
+
+    std::string url{};
+    if (obj.has_string_field("url")) {
+        url = obj.at("url").as_string();
+    }
+
+    return {std::move(relation), std::move(url)};
+}

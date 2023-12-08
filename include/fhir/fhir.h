@@ -11,6 +11,7 @@
 #include "extension.h"
 
 enum class FhirStatus {
+    NOT_SET,
     ACTIVE
 };
 
@@ -46,8 +47,12 @@ class Fhir : public FhirExtendable {
 private:
     std::string resourceType{};
     std::string id{};
+    std::string lastUpdated{};
+    std::string source{};
     std::vector<std::string> profile{};
-    FhirStatus status{};
+    std::string type{};
+    std::string timestamp{};
+    FhirStatus status{FhirStatus::NOT_SET};
 protected:
     bool ParseInline(const web::json::value &json);
 public:
@@ -59,8 +64,20 @@ public:
     [[nodiscard]] std::string GetId() const {
         return id;
     }
+    [[nodiscard]] std::string GetLastUpdated() const {
+        return lastUpdated;
+    }
+    [[nodiscard]] std::string GetSource() const {
+        return source;
+    }
     [[nodiscard]] std::vector<std::string> GetProfile() const {
         return profile;
+    }
+    [[nodiscard]] std::string GetType() const {
+        return type;
+    }
+    [[nodiscard]] std::string GetTimestamp() const {
+        return timestamp;
     }
     [[nodiscard]] FhirStatus GetStatus() const {
         return status;

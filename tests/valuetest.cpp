@@ -84,6 +84,12 @@ int main() {
         AreEqual("text", output.GetText());
         AreEqual(3, output.GetSequence());
     }
+    {
+        auto input = FhirLink("relation", "testRef");
+        auto output = FhirLink::Parse(input.ToJson());
+        AreEqual("relation", output.GetRelation());
+        AreEqual("testRef", output.GetUrl());
+    }
 
     /*
      * Value extension:

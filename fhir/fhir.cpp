@@ -35,6 +35,12 @@ bool Fhir::ParseInline(const web::json::value &json) {
     }
     if (json.has_object_field("meta")) {
         auto meta = json.at("meta");
+        if (meta.has_string_field("lastUpdated")) {
+            lastUpdated = meta.at("lastUpdated").as_string();
+        }
+        if (meta.has_string_field("source")) {
+            source = meta.at("source").as_string();
+        }
         if (meta.has_array_field("profile")) {
             for (const auto &p : meta.at("profile").as_array()) {
                 if (p.is_string()) {
@@ -65,6 +71,12 @@ web::json::value Fhir::ToJson() const {
     if (!profile.empty()) {
         auto meta = web::json::value::object();
         {
+            if (!lastUpdated.empty()) {
+                meta["lastUpdated"] = web::json::value::string(lastUpdated);
+            }
+            if (!source.empty()) {
+                meta["source"] = web::json::value::string(source);
+            }
             auto arr = web::json::value::array(profile.size());
             typeof(profile.size()) i = 0;
             for (const auto &p: profile) {
@@ -74,7 +86,15 @@ web::json::value Fhir::ToJson() const {
         }
         obj["meta"] = meta;
     }
+    if (!type.empty()) {
+        obj["type"] = web::json::value::string(type);
+    }
+    if (!timestamp.empty()) {
+        obj["timestamp"] = web::json::value::string(timestamp);
+    }
     switch (status) {
+        case FhirStatus::NOT_SET:
+            break;
         case FhirStatus::ACTIVE:
             obj["status"] = web::json::value::string("active");
             break;

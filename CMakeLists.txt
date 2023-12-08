@@ -8,7 +8,8 @@ find_package(cpprestsdk REQUIRED)
 
 add_subdirectory(fhir)
 
-add_executable(sfmbasisfaker main.cpp)
+add_executable(sfmbasisfaker main.cpp
+        include/fhir/bundle.h)
 
 target_link_libraries(sfmbasisfaker PRIVATE libfhir)
 target_include_directories(sfmbasisfaker PRIVATE include)
