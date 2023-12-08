@@ -9,6 +9,7 @@
 #include <fhir/person.h>
 #include <fhir/organization.h>
 #include <fhir/substance.h>
+#include <fhir/bundle.h>
 
 std::shared_ptr<Fhir> Fhir::Parse(const web::json::value &obj) {
     if (!obj.has_string_field("resourceType")) {
@@ -32,6 +33,9 @@ std::shared_ptr<Fhir> Fhir::Parse(const web::json::value &obj) {
     }
     if (resourceType == "Substance") {
         return std::make_shared<FhirSubstance>(FhirSubstance::Parse(obj));
+    }
+    if (resourceType == "Bundle") {
+        return std::make_shared<FhirBundle>(FhirBundle::Parse(obj));
     }
     throw std::exception();
 }

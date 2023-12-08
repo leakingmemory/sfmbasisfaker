@@ -8,11 +8,13 @@
 #include "fhirobject.h"
 
 class Fhir;
+class FhirValue;
 
 class FhirParameter : public FhirObject {
 private:
-    std::shared_ptr<Fhir> resource;
-    std::string name;
+    std::shared_ptr<Fhir> resource{};
+    std::shared_ptr<FhirValue> value{};
+    std::string name{};
 public:
     [[nodiscard]] std::shared_ptr<Fhir> GetResource() const { return resource; }
     [[nodiscard]] std::string GetName() const { return name; }

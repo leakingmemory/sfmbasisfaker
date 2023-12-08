@@ -28,7 +28,11 @@ web::json::value FhirBundle::ToJson() const {
 }
 
 FhirBundle FhirBundle::Parse(const web::json::value &obj) {
-    FhirBundle bundle;
+    FhirBundle bundle{};
+
+    if (!bundle.ParseInline(obj)) {
+        throw std::exception();
+    }
 
     if (obj.has_string_field("type")) {
         bundle.type = obj.at("type").as_string();

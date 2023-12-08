@@ -21,24 +21,32 @@ int main(int argc, char **argv) {
         json = sstr.str();
         input.close();
     }
+    std::string assertions = argv[2];
     auto getmed = FhirParameters::Parse(FhirParameters::Parse(web::json::value::parse(json)).ToJson());
-    AreEqual("Parameters", getmed.GetResourceType());
-    AreEqual(1, getmed.GetParameters().size());
-    auto param = getmed.GetParameters().at(0);
-    AreEqual("patient", param.GetName());
-    auto resource = param.GetResource();
-    AreEqual(true, resource.operator bool());
-    auto patient = std::dynamic_pointer_cast<FhirPerson>(resource);
-    AreEqual(true, patient.operator bool());
-    AreEqual(1, patient->GetIdentifiers().size());
-    AreEqual("06120182763", patient->GetIdentifiers().at(0).GetValue());
-    AreEqual(1, patient->GetAddress().size());
-    auto address = patient->GetAddress().at(0);
-    AreEqual("home", address.GetUse());
-    AreEqual("physical", address.GetType());
-    AreEqual(1, address.GetLines().size());
-    auto line = address.GetLines().at(0);
-    AreEqual("Testveien 1", line);
-    AreEqual("Oslo", address.GetCity());
-    AreEqual("1234", address.GetPostalCode());
+    if (assertions == "request") {
+        AreEqual("Parameters", getmed.GetResourceType());
+        AreEqual(1, getmed.GetParameters().size());
+        auto param = getmed.GetParameters().at(0);
+        AreEqual("patient", param.GetName());
+        auto resource = param.GetResource();
+        AreEqual(true, resource.operator bool());
+        auto patient = std::dynamic_pointer_cast<FhirPerson>(resource);
+        AreEqual(true, patient.operator bool());
+        AreEqual(1, patient->GetIdentifiers().size());
+        AreEqual("06120182763", patient->GetIdentifiers().at(0).GetValue());
+        AreEqual(1, patient->GetAddress().size());
+        auto address = patient->GetAddress().at(0);
+        AreEqual("home", address.GetUse());
+        AreEqual("physical", address.GetType());
+        AreEqual(1, address.GetLines().size());
+        auto line = address.GetLines().at(0);
+        AreEqual("Testveien 1", line);
+        AreEqual("Oslo", address.GetCity());
+        AreEqual("1234", address.GetPostalCode());
+    } else if (assertions == "response") {
+        AreEqual("Parameters", getmed.GetResourceType());
+        AreEqual(9, getmed.GetParameters().size());
+    } else {
+        throw std::exception();
+    }
 }

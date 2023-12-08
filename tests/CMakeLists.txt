@@ -32,4 +32,5 @@ target_include_directories(parseGetmed PRIVATE ../include)
 target_link_libraries(parseGetmed PRIVATE libfhir)
 target_link_libraries(parseGetmed PRIVATE cpprestsdk::cpprest -lcrypto)
 
-add_test(NAME ParseGetmed COMMAND parseGetmed "${CMAKE_SOURCE_DIR}/tests/data/nhnfhir/requests/getmed.json" magistral)
+add_test(NAME ParseGetmedReq COMMAND parseGetmed "${CMAKE_SOURCE_DIR}/tests/data/nhnfhir/requests/getmed.json" request)
+add_test(NAME ParseGetmedResp COMMAND parseGetmed "${CMAKE_SOURCE_DIR}/tests/data/nhnfhir/magistral/magistral-getmed-response.json" response)

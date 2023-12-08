@@ -23,6 +23,12 @@ std::shared_ptr<FhirValue> FhirValue::Parse(const std::string &propertyName, con
     if (propertyName == FhirCodeableConceptValue::PropertyName()) {
         return FhirCodeableConceptValue::Parse(property);
     }
+    if (propertyName == FhirDateTimeValue::PropertyName()) {
+        return FhirDateTimeValue::Parse(property);
+    }
+    if (propertyName == FhirBooleanValue::PropertyName()) {
+        return FhirBooleanValue::Parse(property);
+    }
     throw std::exception();
 }
 
@@ -310,4 +316,40 @@ FhirAddress FhirAddress::Parse(const web::json::value &obj) {
     }
 
     return {std::move(lines), std::move(use), std::move(type), std::move(city), std::move(postalCode)};
+}
+
+std::string FhirDateTimeValue::PropertyName() {
+    return "valueDateTime";
+}
+
+std::string FhirDateTimeValue::GetPropertyName() const {
+    return PropertyName();
+}
+
+web::json::value FhirDateTimeValue::ToJson() const {
+    return web::json::value::string(dateTime);
+}
+
+std::shared_ptr<FhirDateTimeValue> FhirDateTimeValue::Parse(const web::json::value &obj) {
+    auto dateTimeValue = std::make_shared<FhirDateTimeValue>();
+    dateTimeValue->dateTime = obj.as_string();
+    return dateTimeValue;
+}
+
+std::string FhirBooleanValue::PropertyName() {
+    return "valueBoolean";
+}
+
+std::string FhirBooleanValue::GetPropertyName() const {
+    return PropertyName();
+}
+
+web::json::value FhirBooleanValue::ToJson() const {
+    return web::json::value::boolean(value);
+}
+
+std::shared_ptr<FhirBooleanValue> FhirBooleanValue::Parse(const web::json::value &obj) {
+    auto value = std::make_shared<FhirBooleanValue>();
+    value->value = obj.as_bool();
+    return value;
 }

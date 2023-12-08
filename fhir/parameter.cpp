@@ -8,13 +8,28 @@
 web::json::value FhirParameter::ToJson() const {
     auto obj = FhirObject::ToJson();
     obj["name"] = web::json::value::string(name);
-    obj["resource"] = resource ? resource->ToJson() : web::json::value::object();
+    if (resource) {
+        obj["resource"] = resource->ToJson();
+    }
+    if (value) {
+        obj[value->GetPropertyName()] = value->ToJson();
+    }
     return obj;
 }
 
 FhirParameter FhirParameter::Parse(const web::json::value &obj) {
     FhirParameter parameter{};
-    parameter.name = obj.at("name").as_string();
-    parameter.resource = Fhir::Parse(obj.at("resource"));
+    for (const auto &prop : obj.as_object()) {
+        const auto &key = prop.first;
+        if (key == "name") {
+            parameter.name = prop.second.as_string();
+        } else if (key == "resource") {
+            parameter.resource = Fhir::Parse(prop.second);
+        } else if (key.starts_with("value")) {
+            parameter.value = FhirValue::Parse(key, prop.second);
+        } else {
+            throw std::exception();
+        }
+    }
     return parameter;
 }

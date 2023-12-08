@@ -274,4 +274,30 @@ public:
     static FhirAddress Parse(const web::json::value &obj);
 };
 
+class FhirDateTimeValue : public FhirValue {
+private:
+    std::string dateTime;
+public:
+    [[nodiscard]] std::string GetDateTime() const {
+        return dateTime;
+    }
+    static std::string PropertyName();
+    std::string GetPropertyName() const override;
+    web::json::value ToJson() const;
+    static std::shared_ptr<FhirDateTimeValue> Parse(const web::json::value &obj);
+};
+
+class FhirBooleanValue : public FhirValue {
+private:
+    bool value;
+public:
+    bool IsTrue() const {
+        return value;
+    }
+    static std::string PropertyName();
+    std::string GetPropertyName() const override;
+    web::json::value ToJson() const;
+    static std::shared_ptr<FhirBooleanValue> Parse(const web::json::value &obj);
+};
+
 #endif //SFMBASISFAKER_VALUE_H
