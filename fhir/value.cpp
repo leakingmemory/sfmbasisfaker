@@ -29,6 +29,9 @@ std::shared_ptr<FhirValue> FhirValue::Parse(const std::string &propertyName, con
     if (propertyName == FhirBooleanValue::PropertyName()) {
         return FhirBooleanValue::Parse(property);
     }
+    if (propertyName == FhirIntegerValue::PropertyName()) {
+        return FhirIntegerValue::Parse(property);
+    }
     throw std::exception();
 }
 
@@ -352,4 +355,26 @@ std::shared_ptr<FhirBooleanValue> FhirBooleanValue::Parse(const web::json::value
     auto value = std::make_shared<FhirBooleanValue>();
     value->value = obj.as_bool();
     return value;
+}
+
+std::string FhirIntegerValue::PropertyName() {
+    return "valueInteger";
+}
+
+std::string FhirIntegerValue::GetPropertyName() const {
+    return PropertyName();
+}
+
+web::json::value FhirIntegerValue::ToJson() const {
+    return web::json::value::number(value);
+}
+
+std::shared_ptr<FhirIntegerValue> FhirIntegerValue::Parse(const web::json::value &obj) {
+    auto integerValue = std::make_shared<FhirIntegerValue>();
+    if constexpr (sizeof(long) == 4) {
+        integerValue->value = obj.as_number().to_int32();
+    } else {
+        integerValue->value = obj.as_number().to_int64();
+    }
+    return integerValue;
 }

@@ -300,4 +300,17 @@ public:
     static std::shared_ptr<FhirBooleanValue> Parse(const web::json::value &obj);
 };
 
+class FhirIntegerValue : public FhirValue {
+private:
+    long value;
+public:
+    long GetValue() const {
+        return value;
+    }
+    static std::string PropertyName();
+    std::string GetPropertyName() const override;
+    web::json::value ToJson() const;
+    static std::shared_ptr<FhirIntegerValue> Parse(const web::json::value &obj);
+};
+
 #endif //SFMBASISFAKER_VALUE_H
