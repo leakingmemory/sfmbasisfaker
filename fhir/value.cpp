@@ -184,7 +184,12 @@ FhirReference FhirReference::Parse(const web::json::value &obj) {
 web::json::value FhirIdentifier::ToJson() const {
     auto obj = FhirObject::ToJson();
     obj["use"] = web::json::value::string(use);
-    obj["type"] = type.ToJson();
+    if (type.IsSet()) {
+        obj["type"] = type.ToJson();
+    }
+    if (!system.empty()) {
+        obj["system"] = web::json::value::string(system);
+    }
     obj["value"] = web::json::value::string(value);
     return obj;
 }
@@ -200,12 +205,17 @@ FhirIdentifier FhirIdentifier::Parse(const web::json::value &obj) {
         type = FhirCodeableConcept::Parse(obj.at("type"));
     }
 
+    std::string system{};
+    if (obj.has_string_field("system")) {
+        system = obj.at("system").as_string();
+    }
+
     std::string value{};
     if (obj.has_string_field("value")) {
         value = obj.at("value").as_string();
     }
 
-    return {std::move(type), std::move(use), std::move(value)};
+    return {std::move(type), std::move(use), std::move(system), std::move(value)};
 }
 
 web::json::value FhirLink::ToJson() const {
@@ -263,6 +273,15 @@ FhirName FhirName::Parse(const web::json::value &obj) {
     }
 
     return name;
+}
+
+std::string FhirName::GetDisplay() const {
+    std::string display{given};
+    if (!display.empty() && !family.empty()) {
+        display.append(" ");
+    }
+    display.append(family);
+    return display;
 }
 
 web::json::value FhirAddress::ToJson() const {

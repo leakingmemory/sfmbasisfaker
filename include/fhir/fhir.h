@@ -9,6 +9,7 @@
 #include <vector>
 #include <memory>
 #include "extension.h"
+#include "fhirconcepts.h"
 
 enum class FhirStatus {
     NOT_SET,
@@ -18,6 +19,7 @@ enum class FhirStatus {
 
 class FhirValue : public FhirObject {
 public:
+    constexpr FhirValue() {}
     virtual std::string GetPropertyName() const = 0;
     static std::shared_ptr<FhirValue> Parse(const std::string &propertyName, const web::json::value &property);
 };
@@ -46,7 +48,7 @@ public:
 
 class Fhir : public FhirExtendable {
 private:
-    std::string resourceType{};
+    std::string resourceType;
     std::string id{};
     std::string lastUpdated{};
     std::string source{};
@@ -57,8 +59,12 @@ private:
 protected:
     bool ParseInline(const web::json::value &json);
 public:
+    constexpr Fhir() : resourceType() {}
+    constexpr explicit Fhir(const std::string &resourceType) : resourceType(resourceType) {}
+    constexpr explicit Fhir(std::string &&resourceType) : resourceType(std::move(resourceType)) {}
     web::json::value ToJson() const;
     static std::shared_ptr<Fhir> Parse(const web::json::value &obj);
+    virtual std::string GetDisplay() const;
     virtual ~Fhir() = default;
     [[nodiscard]] std::string GetResourceType() const {
         return resourceType;
@@ -83,6 +89,27 @@ public:
     }
     [[nodiscard]] FhirStatus GetStatus() const {
         return status;
+    }
+    void SetId(const std::string &id) {
+        this->id = id;
+    }
+    void SetLastUpdated(const std::string &lastUpdated) {
+        this->lastUpdated = lastUpdated;
+    }
+    void SetSource(const std::string &source) {
+        this->source = source;
+    }
+    void SetProfile(const std::string &profile) {
+        this->profile = { profile };
+    }
+    void SetTimestamp(const std::string ts) {
+        timestamp = ts;
+    }
+    void SetDate(const std::string &d) {
+        date = d;
+    }
+    void SetStatus(FhirStatus status) {
+        this->status = status;
     }
 };
 

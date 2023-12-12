@@ -9,6 +9,7 @@
 
 class FhirObject {
 public:
+    constexpr FhirObject() {}
     virtual ~FhirObject() = default;
     virtual web::json::value ToJson() const;
 };

@@ -1,6 +1,8 @@
 #include <iostream>
 #include <vector>
+#include <fhir/parameters.h>
 #include "webserver/WebServer.h"
+#include "controllers/MedicationController.h"
 
 
 static bool keep_alive = true;
@@ -10,6 +12,8 @@ void handle_term_signal(int) {
 }
 
 int main() {
+    auto medicationController = std::make_shared<MedicationController>();
+
     std::vector<std::string> allowedOriginHosts{};
     {
         const char *allow_cors = getenv("ALLOW_CORS");
@@ -48,6 +52,71 @@ int main() {
                     value["status"] = web::json::value("OK");
                     response.set_body(value);
                     return response;
+            });
+        };
+        webServer / "patient" / "$getMedication" >> [medicationController] web_handler (const web::http::http_request &req) {
+            std::string uri = req.request_uri().to_string();
+            return req.extract_json().then([medicationController, uri] (const web::json::value &json) {
+                try {
+                    std::shared_ptr<FhirPerson> patient;
+                    {
+                        FhirParameters inputParameterBundle = FhirParameters::Parse(json);
+                        for (const auto &inputParameter : inputParameterBundle.GetParameters()) {
+                            if (inputParameter.GetName() != "patient") {
+                                web::http::http_response response(web::http::status_codes::BadRequest);
+                                return response;
+                            }
+                            patient = std::dynamic_pointer_cast<FhirPerson>(inputParameter.GetResource());
+                            if (!patient) {
+                                web::http::http_response response(web::http::status_codes::BadRequest);
+                                return response;
+                            }
+                        }
+                    }
+                    if (!patient) {
+                        web::http::http_response response(web::http::status_codes::BadRequest);
+                        return response;
+                    }
+                    auto outputParameters = medicationController->GetMedication(uri, *patient);
+                    web::http::http_response response(web::http::status_codes::OK);
+                    response.set_body(outputParameters.ToJson());
+                    return response;
+                } catch (...) {
+                    web::http::http_response response(web::http::status_codes::InternalError);
+                    return response;
+                }
+            });
+        };
+        webServer / "patient" / "$sendMedication" >> [medicationController] web_handler (const web::http::http_request &req) {
+            return req.extract_json().then([medicationController] (const web::json::value &json) {
+                try {
+                    std::shared_ptr<FhirBundle> bundle;
+                    {
+                        FhirParameters inputParameterBundle = FhirParameters::Parse(json);
+                        for (const auto &inputParameter : inputParameterBundle.GetParameters()) {
+                            if (inputParameter.GetName() != "medication") {
+                                web::http::http_response response(web::http::status_codes::BadRequest);
+                                return response;
+                            }
+                            bundle = std::dynamic_pointer_cast<FhirBundle>(inputParameter.GetResource());
+                            if (!bundle) {
+                                web::http::http_response response(web::http::status_codes::BadRequest);
+                                return response;
+                            }
+                        }
+                    }
+                    if (!bundle) {
+                        web::http::http_response response(web::http::status_codes::BadRequest);
+                        return response;
+                    }
+                    auto outputParameters = medicationController->SendMedication(*bundle);
+                    web::http::http_response response(web::http::status_codes::OK);
+                    response.set_body(outputParameters.ToJson());
+                    return response;
+                } catch (...) {
+                    web::http::http_response response(web::http::status_codes::InternalError);
+                    return response;
+                }
             });
         };
 

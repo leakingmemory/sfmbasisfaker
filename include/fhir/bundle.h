@@ -15,6 +15,14 @@ private:
     std::string type{};
     int total{0};
 public:
+    constexpr FhirBundle() : Fhir("Bundle") {}
+    void SetType(const std::string &type) {
+        this->type = type;
+    }
+    void AddLink(const std::string &relation, const std::string &url);
+    void AddLink(std::string &&relation, std::string &&url);
+    void AddEntry(const FhirBundleEntry &entry);
+    void AddEntry(FhirBundleEntry &&entry);
     [[nodiscard]] std::vector<FhirLink> GetLink() const { return link; }
     [[nodiscard]] std::vector<FhirBundleEntry> GetEntries() const { return entries; }
     [[nodiscard]] std::string GetType() const {

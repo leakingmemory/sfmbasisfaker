@@ -4,6 +4,7 @@
 
 #include <fhir/bundleentry.h>
 #include <fhir/fhir.h>
+#include <fhir/value.h>
 
 web::json::value FhirBundleEntry::ToJson() const {
     auto obj = FhirObject::ToJson();
@@ -25,4 +26,8 @@ FhirBundleEntry FhirBundleEntry::Parse(const web::json::value &obj) {
         entry.resource = Fhir::Parse(obj.at("resource"));
     }
     return entry;
+}
+
+FhirReference FhirBundleEntry::CreateReference(const std::string &type) const {
+    return {fullUrl, type, resource ? resource->GetDisplay() : "Display"};
 }

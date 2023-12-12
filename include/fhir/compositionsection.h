@@ -16,6 +16,16 @@ private:
     std::string textStatus{};
     std::string textXhtml{};
 public:
+    constexpr FhirCompositionSection() {}
+
+    void SetCode(const FhirCodeableConcept &code) { this->code = code; }
+    void SetEmptyReason(const FhirCodeableConcept &emptyReason) { this->emptyReason = emptyReason; }
+    void SetEntries(const std::vector<FhirReference> &entries) { this->entries = entries; }
+    void AddEntry(const FhirReference &entry) { this->entries.push_back(entry); }
+    void SetTitle(const std::string &title) { this->title = title; }
+    void SetTextStatus(const std::string &textStatus) { this->textStatus = textStatus; }
+    void SetTextXhtml(const std::string &textXhtml) { this->textXhtml = textXhtml; }
+
     [[nodiscard]] FhirCodeableConcept GetCode() const { return code; }
     [[nodiscard]] FhirCodeableConcept GetEmptyReason() const { return emptyReason; }
     [[nodiscard]] std::vector<FhirReference> GetEntries() const { return entries; }

@@ -80,3 +80,28 @@ FhirPerson FhirPerson::Parse(const web::json::value &obj) {
 
     return practitioner;
 }
+
+std::string FhirPerson::GetDisplay() const {
+    std::string display{};
+    for (const auto &n : name) {
+        display = n.GetDisplay();
+        if (!display.empty()) {
+            for (const auto &id : identifiers) {
+                if (id.GetUse() == "official" && id.GetSystem() == "urn:oid:2.16.578.1.12.4.1.4.4") {
+                    display.append(", HPR: ");
+                    display.append(id.GetValue());
+                    break;
+                }
+            }
+            return display;
+        }
+    }
+    for (const auto &id : identifiers) {
+        if (id.GetUse() == "official" && id.GetSystem() == "urn:oid:2.16.578.1.12.4.1.4.4") {
+            display.append("HPR: ");
+            display.append(id.GetValue());
+            break;
+        }
+    }
+    return display;
+}

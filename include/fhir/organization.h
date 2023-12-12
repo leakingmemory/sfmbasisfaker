@@ -15,8 +15,13 @@ public:
     [[nodiscard]] std::vector<FhirIdentifier> getIdentifiers() const {
         return identifiers;
     }
+    void SetIdentifiers(const std::vector<FhirIdentifier> &newIdentifiers) {
+        identifiers = newIdentifiers;
+    }
+
     [[nodiscard]] web::json::value ToJson() const;
     static FhirOrganization Parse(const web::json::value &obj);
+    std::string GetDisplay() const override;
 };
 
 #endif //SFMBASISFAKER_ORGANIZATION_H

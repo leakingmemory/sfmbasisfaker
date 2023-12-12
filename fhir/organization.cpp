@@ -31,3 +31,14 @@ FhirOrganization FhirOrganization::Parse(const web::json::value &obj) {
     }
     return org;
 }
+
+std::string FhirOrganization::GetDisplay() const {
+    for (const auto &id : identifiers) {
+        if (id.GetUse() == "official" && id.GetSystem() == "urn:oid:2.16.578.1.12.4.1.2") {
+            std::string display{"HER: "};
+            display.append(id.GetValue());
+            return display;
+        }
+    }
+    return Fhir::GetDisplay();
+}

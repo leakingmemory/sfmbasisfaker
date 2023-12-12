@@ -3,6 +3,23 @@
 //
 
 #include <fhir/bundle.h>
+#include <fhir/value.h>
+
+void FhirBundle::AddLink(const std::string &relation, const std::string &url) {
+    link.emplace_back(relation, url);
+}
+
+void FhirBundle::AddLink(std::string &&relation, std::string &&url) {
+    link.emplace_back(relation, url);
+}
+
+void FhirBundle::AddEntry(const FhirBundleEntry &entry) {
+    entries.emplace_back(entry);
+}
+
+void FhirBundle::AddEntry(FhirBundleEntry &&entry) {
+    entries.emplace_back(std::move(entry));
+}
 
 web::json::value FhirBundle::ToJson() const {
     auto obj = Fhir::ToJson();

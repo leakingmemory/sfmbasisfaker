@@ -39,3 +39,7 @@ std::shared_ptr<Fhir> Fhir::Parse(const web::json::value &obj) {
     }
     throw std::exception();
 }
+
+std::string Fhir::GetDisplay() const {
+    return !id.empty() ? id : "Display";
+}

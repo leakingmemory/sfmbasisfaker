@@ -31,9 +31,10 @@ private:
     std::string code;
     std::string display;
 public:
-    FhirCoding(const std::string &system, const std::string &code, const std::string &display) :
+    constexpr FhirCoding() : system(), code(), display() {}
+    constexpr FhirCoding(const std::string &system, const std::string &code, const std::string &display) :
         system(system), code(code), display(display) {}
-    FhirCoding(std::string &&system, std::string &&code, std::string &&display) :
+    constexpr FhirCoding(std::string &&system, std::string &&code, std::string &&display) :
             system(std::move(system)), code(std::move(code)), display(std::move(display)) {}
     web::json::value ToJson() const override;
     static FhirCoding Parse(const web::json::value &obj);
@@ -53,11 +54,15 @@ private:
     std::vector<FhirCoding> coding;
     std::string text;
 public:
-    FhirCodeableConcept() : coding(), text() {}
-    explicit FhirCodeableConcept(const std::vector<FhirCoding> &coding) : coding(coding), text() {}
-    explicit FhirCodeableConcept(std::vector<FhirCoding> &&coding) : coding(std::move(coding)), text() {}
-    explicit FhirCodeableConcept(std::vector<FhirCoding> &&coding, std::string &&text) : coding(std::move(coding)), text(std::move(text)) {}
-    explicit FhirCodeableConcept(const std::string &text) : coding(), text(text) {}
+    constexpr FhirCodeableConcept() : coding(), text() {}
+    constexpr explicit FhirCodeableConcept(const std::vector<FhirCoding> &coding) : coding(coding), text() {}
+    constexpr explicit FhirCodeableConcept(std::vector<FhirCoding> &&coding) : coding(std::move(coding)), text() {}
+    constexpr explicit FhirCodeableConcept(std::vector<FhirCoding> &&coding, std::string &&text) : coding(std::move(coding)), text(std::move(text)) {}
+    constexpr explicit FhirCodeableConcept(const std::string &system, const std::string &code, const std::string &name)
+    : coding({{system, code, name}}), text() {}
+    constexpr explicit FhirCodeableConcept(std::string &&system, std::string &&code, std::string &&name)
+            : coding({{std::move(system), std::move(code), std::move(name)}}), text() {}
+    constexpr explicit FhirCodeableConcept(const std::string &text) : coding(), text(text) {}
     [[nodiscard]] web::json::value ToJson() const override;
     static FhirCodeableConcept Parse(const web::json::value &obj);
     [[nodiscard]] std::vector<FhirCoding> GetCoding() const {
@@ -137,10 +142,10 @@ private:
     std::string type;
     std::string display;
 public:
-    FhirReference() : reference(), type(), display() {}
-    FhirReference(const std::string &reference, const std::string &type, const std::string &display)
+    constexpr FhirReference() : reference(), type(), display() {}
+    constexpr FhirReference(const std::string &reference, const std::string &type, const std::string &display)
             : reference(reference), type(type), display(display) {}
-    FhirReference(std::string &&reference, std::string &&type, std::string &&display)
+    constexpr FhirReference(std::string &&reference, std::string &&type, std::string &&display)
             : reference(std::move(reference)), type(std::move(type)), display(std::move(display)) {}
 
     [[nodiscard]] std::string GetReference() const {
@@ -164,24 +169,40 @@ class FhirIdentifier : public FhirObject {
 private:
     FhirCodeableConcept type;
     std::string use;
+    std::string system;
     std::string value;
 public:
-    FhirIdentifier() : type(), use(), value() {}
-    FhirIdentifier(const FhirCodeableConcept &type, const std::string &use, const std::string &value)
-        : type(type), use(use), value(value) {}
-    FhirIdentifier(FhirCodeableConcept &&type, std::string &&use, std::string &&value)
-        : type(std::move(type)), use(std::move(use)), value(std::move(value)) {}
+    constexpr FhirIdentifier() : type(), use(), system(), value() {}
+    constexpr FhirIdentifier(const std::string &use, const std::string &value)
+            : type(), use(use), system(), value(value) {}
+    constexpr FhirIdentifier(std::string &&use, std::string &&value)
+            : type(), use(std::move(use)), system(), value(std::move(value)) {}
+    constexpr FhirIdentifier(const std::string &use, const std::string &system, const std::string &value)
+            : type(), use(use), system(system), value(value) {}
+    constexpr FhirIdentifier(std::string &&use, std::string &&system, std::string &&value)
+            : type(), use(use), system(system), value(value) {}
+    constexpr FhirIdentifier(const FhirCodeableConcept &type, const std::string &use, const std::string &value)
+        : type(type), use(use), system(), value(value) {}
+    constexpr FhirIdentifier(FhirCodeableConcept &&type, std::string &&use, std::string &&value)
+        : type(std::move(type)), use(std::move(use)), system(), value(std::move(value)) {}
+    constexpr FhirIdentifier(const FhirCodeableConcept &type, const std::string &use, const std::string &system, const std::string &value)
+            : type(type), use(use), system(system), value(value) {}
+    constexpr FhirIdentifier(FhirCodeableConcept &&type, std::string &&use, std::string &&system, std::string &&value)
+            : type(std::move(type)), use(std::move(use)), system(std::move(system)), value(std::move(value)) {}
     [[nodiscard]] std::string GetUse() const {
         return use;
     }
     [[nodiscard]] FhirCodeableConcept GetType() const {
         return type;
     }
+    [[nodiscard]] std::string GetSystem() const {
+        return system;
+    }
     [[nodiscard]] std::string GetValue() const {
         return value;
     }
     bool IsSet() const {
-        return !use.empty() || type.IsSet() || !value.empty();
+        return !use.empty() || type.IsSet() || !system.empty() || !value.empty();
     }
     web::json::value ToJson() const;
     static FhirIdentifier Parse(const web::json::value &obj);
@@ -236,6 +257,7 @@ public:
     }
     web::json::value ToJson() const;
     static FhirName Parse(const web::json::value &obj);
+    std::string GetDisplay() const;
 };
 
 class FhirAddress : public FhirObject {
@@ -278,6 +300,8 @@ class FhirDateTimeValue : public FhirValue {
 private:
     std::string dateTime;
 public:
+    FhirDateTimeValue() : dateTime() {}
+    FhirDateTimeValue(const std::string &dateTime) : dateTime(dateTime) {}
     [[nodiscard]] std::string GetDateTime() const {
         return dateTime;
     }
@@ -291,6 +315,8 @@ class FhirBooleanValue : public FhirValue {
 private:
     bool value;
 public:
+    constexpr FhirBooleanValue() : value(false) {}
+    explicit constexpr FhirBooleanValue(bool value) : value(value) {}
     bool IsTrue() const {
         return value;
     }
@@ -304,6 +330,8 @@ class FhirIntegerValue : public FhirValue {
 private:
     long value;
 public:
+    constexpr FhirIntegerValue() : value(0) {}
+    constexpr FhirIntegerValue(long value) : value(value) {}
     long GetValue() const {
         return value;
     }
