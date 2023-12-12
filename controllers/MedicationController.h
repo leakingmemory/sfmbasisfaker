@@ -5,9 +5,9 @@
 #ifndef SFMBASISFAKER_MEDICATIONCONTROLLER_H
 #define SFMBASISFAKER_MEDICATIONCONTROLLER_H
 
-#include <fhir/parameters.h>
-#include <fhir/person.h>
-#include <fhir/bundle.h>
+#include <sfmbasisapi/fhir/parameters.h>
+#include <sfmbasisapi/fhir/person.h>
+#include <sfmbasisapi/fhir/bundle.h>
 
 class MedicationController {
 public:
