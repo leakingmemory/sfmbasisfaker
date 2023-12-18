@@ -53,7 +53,7 @@ FhirParameters MedicationController::GetMedication(const std::string &selfUrl, c
             url.append(uuid_string);
         }
         organizationEntry = FhirBundleEntry::Create<FhirOrganization>(url);
-        auto o = *(std::dynamic_pointer_cast<FhirOrganization>(practitionerEntry.GetResource()));
+        auto o = *(std::dynamic_pointer_cast<FhirOrganization>(organizationEntry.GetResource()));
         {
             boost::uuids::uuid uuid = boost::uuids::random_generator()();
             std::string uuid_string = to_string(uuid);
