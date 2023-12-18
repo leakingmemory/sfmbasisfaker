@@ -7,10 +7,10 @@
 #include <boost/uuid/uuid_io.hpp>
 
 #include "MedicationController.h"
-#include <fhir/organization.h>
-#include <nhnfhir/KjRfErrorCode.h>
-#include <fhir/composition.h>
-#include <IsoDateTime.h>
+#include <sfmbasisapi/fhir/organization.h>
+#include <sfmbasisapi/nhnfhir/KjRfErrorCode.h>
+#include <sfmbasisapi/fhir/composition.h>
+#include <sfmbasisapi/IsoDateTime.h>
 
 FhirParameters MedicationController::GetMedication(const std::string &selfUrl, const FhirPerson &patient) {
     // TODO - from JWT
