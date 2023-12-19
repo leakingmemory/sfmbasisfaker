@@ -15,3 +15,5 @@ target_link_libraries(sfmbasisfaker PRIVATE webserver)
 target_link_libraries(sfmbasisfaker PRIVATE controllers)
 target_link_libraries(sfmbasisfaker PRIVATE -lsfmbasisapi)
 target_link_libraries(sfmbasisfaker PRIVATE cpprestsdk::cpprest -lcrypto)
+
+install(TARGET sfmbasisfaker DESTINATION bin)
