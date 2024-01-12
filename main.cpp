@@ -56,7 +56,15 @@ int main() {
         };
         webServer / "patient" / "$getMedication" >> [medicationController] web_handler (const web::http::http_request &req) {
             std::string uri = req.request_uri().to_string();
-            return req.extract_json().then([medicationController, uri] (const pplx::task<web::json::value> &jsonTask) {
+            auto contentType = req.headers().content_type();
+            if (!contentType.starts_with("application/fhir+json")) {
+                std::cerr << "$getMedication: wrong content type in request: " << contentType << "\n";
+                return pplx::task<web::http::http_response>([] () {
+                    web::http::http_response response(web::http::status_codes::BadRequest);
+                    return response;
+                });
+            }
+            return req.extract_json(true).then([medicationController, uri] (const pplx::task<web::json::value> &jsonTask) {
                 try {
                     auto json = jsonTask.get();
                     std::shared_ptr<FhirPerson> patient;
@@ -80,7 +88,11 @@ int main() {
                     }
                     auto outputParameters = medicationController->GetMedication(uri, *patient);
                     web::http::http_response response(web::http::status_codes::OK);
-                    response.set_body(outputParameters.ToJson());
+                    {
+                        auto json = outputParameters.ToJson();
+                        auto jsonString = json.serialize();
+                        response.set_body(jsonString, "application/fhir+json; charset=utf-8");
+                    }
                     return response;
                 } catch (...) {
                     web::http::http_response response(web::http::status_codes::InternalError);
@@ -89,7 +101,15 @@ int main() {
             });
         };
         webServer / "patient" / "$sendMedication" >> [medicationController] web_handler (const web::http::http_request &req) {
-            return req.extract_json().then([medicationController] (const pplx::task<web::json::value> &jsonTask) {
+            auto contentType = req.headers().content_type();
+            if (!contentType.starts_with("application/fhir+json")) {
+                std::cerr << "$getMedication: wrong content type in request: " << contentType << "\n";
+                return pplx::task<web::http::http_response>([] () {
+                    web::http::http_response response(web::http::status_codes::BadRequest);
+                    return response;
+                });
+            }
+            return req.extract_json(true).then([medicationController] (const pplx::task<web::json::value> &jsonTask) {
                 try {
                     auto json = jsonTask.get();
                     std::shared_ptr<FhirBundle> bundle;
@@ -113,7 +133,11 @@ int main() {
                     }
                     auto outputParameters = medicationController->SendMedication(*bundle);
                     web::http::http_response response(web::http::status_codes::OK);
-                    response.set_body(outputParameters.ToJson());
+                    {
+                        auto json = outputParameters.ToJson();
+                        auto jsonString = json.serialize();
+                        response.set_body(jsonString, "application/fhir+json; charset=utf-8");
+                    }
                     return response;
                 } catch (...) {
                     web::http::http_response response(web::http::status_codes::InternalError);
