@@ -11,8 +11,9 @@
 #include <sfmbasisapi/nhnfhir/KjRfErrorCode.h>
 #include <sfmbasisapi/fhir/composition.h>
 #include <sfmbasisapi/IsoDateTime.h>
+#include "../domain/person.h"
 
-FhirParameters MedicationController::GetMedication(const std::string &selfUrl, const FhirPerson &patient) {
+FhirParameters MedicationController::GetMedication(const std::string &selfUrl, const Person &practitioner, const FhirPerson &patient) {
     // TODO - from JWT
     FhirBundleEntry practitionerEntry{};
     {
@@ -39,9 +40,9 @@ FhirParameters MedicationController::GetMedication(const std::string &selfUrl, c
             p.SetIdentifiers(identifiers);
         }
         p.SetActive(true);
-        p.SetName({{"official", "Hansen", "Jesper Odd"}});
-        p.SetGender("female");
-        p.SetBirthDate("1982-04-23");
+        p.SetName({{"official", practitioner.GetFamilyName(), practitioner.GetGivenName()}});
+        p.SetGender(practitioner.GetGender() == PersonGender::FEMALE ? "female" : "male");
+        p.SetBirthDate(practitioner.GetDateOfBirth());
     }
     // TODO - HER-id
     FhirBundleEntry organizationEntry{};

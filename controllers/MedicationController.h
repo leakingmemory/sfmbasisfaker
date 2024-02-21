@@ -9,9 +9,11 @@
 #include <sfmbasisapi/fhir/person.h>
 #include <sfmbasisapi/fhir/bundle.h>
 
+class Person;
+
 class MedicationController {
 public:
-    [[nodiscard]] FhirParameters GetMedication(const std::string &selfUrl, const FhirPerson &patient);
+    [[nodiscard]] FhirParameters GetMedication(const std::string &selfUrl, const Person &practitioner, const FhirPerson &patient);
     [[nodiscard]] FhirParameters SendMedication(const FhirBundle &bundle);
 };
 
