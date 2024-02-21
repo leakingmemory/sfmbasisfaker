@@ -14,7 +14,6 @@
 #include "../domain/person.h"
 
 FhirParameters MedicationController::GetMedication(const std::string &selfUrl, const Person &practitioner, const FhirPerson &patient) {
-    // TODO - from JWT
     FhirBundleEntry practitionerEntry{};
     {
         std::string url{"urn:uuid:"};
@@ -33,10 +32,8 @@ FhirParameters MedicationController::GetMedication(const std::string &selfUrl, c
         p.SetProfile("http://ehelse.no/fhir/StructureDefinition/sfm-Practitioner");
         {
             std::vector<FhirIdentifier> identifiers{};
-            // TODO - HPR
-            identifiers.emplace_back(FhirCodeableConcept("http://hl7.no/fhir/NamingSystem/HPR", "HPR-nummer", ""), "official", "urn:oid:2.16.578.1.12.4.1.4.4", "7479654");
-            // TODO - fnr
-            identifiers.emplace_back(FhirCodeableConcept("http://hl7.no/fhir/NamingSystem/FNR", "FNR-nummer", ""), "official", "urn:oid:2.16.578.1.12.4.1.4.1", "23048201385");
+            identifiers.emplace_back(FhirCodeableConcept("http://hl7.no/fhir/NamingSystem/HPR", "HPR-nummer", ""), "official", "urn:oid:2.16.578.1.12.4.1.4.4", practitioner.GetHpr());
+            identifiers.emplace_back(FhirCodeableConcept("http://hl7.no/fhir/NamingSystem/FNR", "FNR-nummer", ""), "official", "urn:oid:2.16.578.1.12.4.1.4.1", practitioner.GetFodselsnummer());
             p.SetIdentifiers(identifiers);
         }
         p.SetActive(true);
