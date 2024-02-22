@@ -12,8 +12,9 @@
 #include <sfmbasisapi/fhir/composition.h>
 #include <sfmbasisapi/IsoDateTime.h>
 #include "../domain/person.h"
+#include "../service/PersonStorage.h"
 
-FhirParameters MedicationController::GetMedication(const std::string &selfUrl, const Person &practitioner, const FhirPerson &patient) {
+FhirParameters MedicationController::GetMedication(const std::string &selfUrl, const Person &practitioner, const FhirPerson &fhirPatient) {
     FhirBundleEntry practitionerEntry{};
     {
         std::string url{"urn:uuid:"};
@@ -64,6 +65,88 @@ FhirParameters MedicationController::GetMedication(const std::string &selfUrl, c
             o.SetIdentifiers(identifiers);
         }
     }
+    Person patient{};
+    std::string patientPid{};
+    for (const auto &identifier : fhirPatient.GetIdentifiers()) {
+        if (identifier.GetSystem() == "urn:oid:2.16.578.1.12.4.1.4.1") {
+            patientPid = identifier.GetValue();
+        }
+    }
+    PersonStorage personStorage{};
+    if (!patientPid.empty()) {
+        patient = personStorage.GetByFodselsnummer(patientPid);
+        bool modified{false};
+        if (patient.GetFodselsnummer().empty()) {
+            patient.SetFodselsnummer(patientPid);
+            modified = true;
+        }
+        auto fhirNames = fhirPatient.GetName();
+        {
+            bool found{false};
+            std::string family{};
+            std::string given{};
+            for (const auto &fhirName : fhirNames) {
+                if (fhirName.GetUse() == "official") {
+                    family = fhirName.GetFamily();
+                    given = fhirName.GetGiven();
+                    found = true;
+                }
+            }
+            if (!found && !fhirNames.empty()) {
+                auto fhirName = fhirNames[0];
+                family = fhirName.GetFamily();
+                given = fhirName.GetGiven();
+                found = true;
+            }
+            if (found) {
+                if (patient.GetFamilyName() != family) {
+                    patient.SetFamilyName(family);
+                    modified = true;
+                }
+                if (patient.GetGivenName() != given) {
+                    patient.SetGivenName(given);
+                    modified = true;
+                }
+            }
+        }
+        auto fhirAddresses = fhirPatient.GetAddress();
+        {
+            bool found{false};
+            std::string postcode{};
+            std::string city{};
+            for (const auto &fhirAddress : fhirAddresses) {
+                if (fhirAddress.GetUse() == "home") {
+                    postcode = fhirAddress.GetPostalCode();
+                    city = fhirAddress.GetCity();
+                    found = true;
+                }
+            }
+            if (!found && !fhirAddresses.empty()) {
+                auto fhirAddress = fhirAddresses[0];
+                postcode = fhirAddress.GetPostalCode();
+                city = fhirAddress.GetCity();
+                found = true;
+            }
+            if (found) {
+                if (patient.GetHomePostalCode() != postcode) {
+                    patient.SetHomePostalCode(postcode);
+                    modified = true;
+                }
+                if (patient.GetHomeCity() != city) {
+                    patient.SetHomeCity(city);
+                    modified = true;
+                }
+            }
+        }
+        auto dob = fhirPatient.GetBirthDate();
+        if (patient.GetDateOfBirth() != dob) {
+            patient.SetDateOfBirth(dob);
+            modified = true;
+        }
+        if (modified) {
+            personStorage.Store(patient);
+        }
+    }
     FhirBundleEntry patientEntry{};
     {
         std::string url{"urn:uuid:"};
@@ -80,12 +163,41 @@ FhirParameters MedicationController::GetMedication(const std::string &selfUrl, c
             p.SetId(uuid_string);
         }
         p.SetProfile("http://ehelse.no/fhir/StructureDefinition/sfm-Patient");
-        p.SetIdentifiers(patient.GetIdentifiers());
-        p.SetActive(patient.IsActive());
-        p.SetName(patient.GetName());
-        p.SetGender(patient.GetGender());
-        p.SetBirthDate(patient.GetBirthDate());
-        p.SetAddress(patient.GetAddress());
+        if (!patient.GetId().empty()) {
+            auto fnr = patient.GetFodselsnummer();
+            if (!fnr.empty()) {
+                std::vector<FhirIdentifier> identifiers{};
+                {
+                    FhirCodeableConcept code{"http://hl7.no/fhir/NamingSystem/FNR", "FNR-nummer", ""};
+                    identifiers.emplace_back(code, "official", "urn:oid:2.16.578.1.12.4.1.4.1", fnr);
+                }
+                p.SetIdentifiers(identifiers);
+            }
+            p.SetActive(true);
+            {
+                std::vector<FhirName> names{};
+                names.emplace_back("official", patient.GetFamilyName(), patient.GetGivenName());
+                p.SetName(names);
+            }
+            p.SetGender(patient.GetGender() == PersonGender::FEMALE ? "female" : "male");
+            p.SetBirthDate(patient.GetDateOfBirth());
+            {
+                std::vector<FhirAddress> addresses{};
+                {
+                    std::vector<std::string> lines{};
+                    addresses.emplace_back(lines, "home", "physical", patient.GetHomeCity(),
+                                           patient.GetHomePostalCode());
+                }
+                p.SetAddress(addresses);
+            }
+        } else {
+            p.SetIdentifiers(fhirPatient.GetIdentifiers());
+            p.SetActive(fhirPatient.IsActive());
+            p.SetName(fhirPatient.GetName());
+            p.SetGender(fhirPatient.GetGender());
+            p.SetBirthDate(fhirPatient.GetBirthDate());
+            p.SetAddress(fhirPatient.GetAddress());
+        }
     }
     FhirCompositionSection medicationSection{};
     medicationSection.SetTitle("Medication");
