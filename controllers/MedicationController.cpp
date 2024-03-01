@@ -10,9 +10,13 @@
 #include <sfmbasisapi/fhir/organization.h>
 #include <sfmbasisapi/nhnfhir/KjRfErrorCode.h>
 #include <sfmbasisapi/fhir/composition.h>
+#include <sfmbasisapi/fhir/medstatement.h>
 #include <sfmbasisapi/IsoDateTime.h>
 #include "../domain/person.h"
+#include "../domain/prescription.h"
 #include "../service/PersonStorage.h"
+#include "../service/CreatePrescriptionService.h"
+#include "../service/PrescriptionStorage.h"
 
 FhirParameters MedicationController::GetMedication(const std::string &selfUrl, const Person &practitioner, const FhirPerson &fhirPatient) {
     FhirBundleEntry practitionerEntry{};
@@ -283,8 +287,127 @@ FhirParameters MedicationController::GetMedication(const std::string &selfUrl, c
 }
 
 FhirParameters MedicationController::SendMedication(const FhirBundle &bundle) {
+    std::string patientId{};
+    std::vector<Prescription> prescriptions{};
+    {
+        std::vector<std::shared_ptr<FhirMedicationStatement>> medicationStatements{};
+        {
+            std::shared_ptr<FhirComposition> composition{};
+            for (const auto &entry: bundle.GetEntries()) {
+                auto compositionResource = std::dynamic_pointer_cast<FhirComposition>(entry.GetResource());
+                if (compositionResource) {
+                    if (composition) {
+                        // TODO
+                        return {};
+                    }
+                    composition = compositionResource;
+                }
+            }
+            if (!composition) {
+                // TODO
+                return {};
+            }
+            FhirCompositionSection medicationSection{};
+            {
+                bool found{false};
+                for (const auto &section: composition->GetSections()) {
+                    bool isMedication{false};
+                    for (const auto &coding: section.GetCode().GetCoding()) {
+                        if (coding.GetCode() == "sectionMedication") {
+                            isMedication = true;
+                            break;
+                        }
+                    }
+                    if (isMedication) {
+                        if (found) {
+                            // TODO
+                            return {};
+                        }
+                        medicationSection = section;
+                        found = true;
+                    }
+                }
+                if (!found) {
+                    // TODO
+                    return {};
+                }
+            }
+            {
+                std::vector<std::string> medicationStatementReferences{};
+                for (const auto &entryReference: medicationSection.GetEntries()) {
+                    medicationStatementReferences.emplace_back(entryReference.GetReference());
+                }
+                for (const auto &entry: bundle.GetEntries()) {
+                    auto fullUrl = entry.GetFullUrl();
+                    auto iterator = std::find(medicationStatementReferences.begin(),
+                                              medicationStatementReferences.end(),
+                                              fullUrl);
+                    if (iterator != medicationStatementReferences.end()) {
+                        auto medStatement = std::dynamic_pointer_cast<FhirMedicationStatement>(entry.GetResource());
+                        if (medStatement) {
+                            medicationStatements.emplace_back(medStatement);
+                        }
+                    }
+                }
+            }
+            std::vector<Prescription> prescriptions{};
+            auto medicationStatementIterator = medicationStatements.begin();
+            while (medicationStatementIterator != medicationStatements.end()) {
+                auto medicationStatement = *medicationStatementIterator;
+                bool createeresept{false};
+                for (const auto &extension: medicationStatement->GetExtensions()) {
+                    if (extension->GetUrl() == "http://ehelse.no/fhir/StructureDefinition/sfm-reseptamendment") {
+                        for (const auto &subExtension: extension->GetExtensions()) {
+                            if (subExtension->GetUrl() == "createeresept") {
+                                auto valueExtension = std::dynamic_pointer_cast<FhirValueExtension>(subExtension);
+                                if (valueExtension) {
+                                    auto value = std::dynamic_pointer_cast<FhirBooleanValue>(
+                                            valueExtension->GetValue());
+                                    if (value) {
+                                        createeresept = value->IsTrue();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                if (createeresept) {
+                    ++medicationStatementIterator;
+                } else {
+                    medicationStatementIterator = medicationStatements.erase(medicationStatementIterator);
+                }
+            }
+        }
+        CreatePrescriptionService createPrescriptionService{};
+        for (const auto &medicationStatement : medicationStatements) {
+            Prescription prescription = createPrescriptionService.CreatePrescription(medicationStatement, bundle);
+            patientId = prescription.GetPatient();
+            prescriptions.emplace_back(prescription);
+        }
+        if (!prescriptions.empty() && patientId.empty()) {
+            // TODO
+            return {};
+        }
+        for (const auto &prescription : prescriptions) {
+            if (prescription.GetPatient() != patientId) {
+                // TODO
+                return {};
+            }
+        }
+    }
+    int prescriptionCount{0};
+    if (!patientId.empty()) {
+        PrescriptionStorage prescriptionStorage{};
+        auto list = prescriptionStorage.LoadPatientMap(patientId);
+        for (const auto &prescription : prescriptions) {
+            auto id = prescriptionStorage.Store(patientId, prescription);
+            list.emplace_back(id);
+            ++prescriptionCount;
+        }
+        prescriptionStorage.StorePatientMap(patientId, list);
+    }
     FhirParameters parameters{};
     parameters.AddParameter("recallCount", std::make_shared<FhirIntegerValue>(0));
-    parameters.AddParameter("prescriptionCount", std::make_shared<FhirIntegerValue>(0));
+    parameters.AddParameter("prescriptionCount", std::make_shared<FhirIntegerValue>(prescriptionCount));
     return parameters;
 }

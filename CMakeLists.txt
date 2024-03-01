@@ -9,12 +9,14 @@ find_package(cpprestsdk REQUIRED)
 add_subdirectory(webserver)
 add_subdirectory(controllers)
 add_subdirectory(service)
+add_subdirectory(serialization)
 
 add_executable(sfmbasisfaker main.cpp)
 
 target_link_libraries(sfmbasisfaker PRIVATE webserver)
 target_link_libraries(sfmbasisfaker PRIVATE controllers)
 target_link_libraries(sfmbasisfaker PRIVATE service)
+target_link_libraries(sfmbasisfaker PRIVATE serialization)
 target_link_libraries(sfmbasisfaker PRIVATE -lsfmbasisapi -ljjwtid)
 target_link_libraries(sfmbasisfaker PRIVATE cpprestsdk::cpprest -lcrypto)
 
