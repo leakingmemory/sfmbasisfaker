@@ -13,10 +13,12 @@ class PersonStorage {
 public:
     void Store(const Person &);
 private:
-    [[nodiscard]] Person GetById(const std::string &) const ;
+    [[nodiscard]] Person GetRawById(const std::string &) const ;
+    void AddFnr(Person &person) const ;
     void AddHpr(Person &person) const ;
 public:
     [[nodiscard]] Person GetByFodselsnummer(const std::string &) const ;
+    [[nodiscard]] Person GetById(const std::string &) const ;
 };
 
 #endif //SFMBASISFAKER_PERSONSTORAGE_H

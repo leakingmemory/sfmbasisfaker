@@ -5,9 +5,12 @@
 #include "CreatePrescriptionService.h"
 #include <sfmbasisapi/fhir/medstatement.h>
 #include <sfmbasisapi/fhir/bundle.h>
+#include <sfmbasisapi/fhir/bundleentry.h>
 #include <sfmbasisapi/fhir/medication.h>
 #include <sfmbasisapi/fhir/person.h>
 #include <map>
+#include <boost/uuid/uuid_generators.hpp> // for random_generator
+#include <boost/uuid/uuid_io.hpp> // for to_string
 #include "PersonStorage.h"
 #include "../domain/person.h"
 
@@ -390,4 +393,334 @@ CreatePrescriptionService::CreatePrescription(const std::shared_ptr<FhirMedicati
         }
     }
     return prescription;
+}
+
+std::vector<FhirBundleEntry> CreatePrescriptionService::CreateFhirMedicationFromMagistral(
+        const std::shared_ptr<MagistralMedication> &magistral) const {
+    auto medication = std::make_shared<FhirMedication>();
+    medication->SetAmount({{magistral->GetAmount(), magistral->GetAmountUnit()}, {}});
+    {
+        FhirCodeableConcept code{"urn:oid:2.16.578.1.12.4.1.1.7424", "10", "Magistrell"};
+        medication->SetCode(code);
+    }
+    {
+        auto form = magistral->GetForm();
+        FhirCodeableConcept codeable{form.getSystem(), form.getCode(), form.getDisplay()};
+        medication->SetForm(codeable);
+    }
+    {
+        boost::uuids::random_generator generator;
+        boost::uuids::uuid randomUUID = generator();
+        auto id = boost::uuids::to_string(randomUUID);
+        medication->SetId(id);
+    }
+    medication->SetProfile("http://ehelse.no/fhir/StructureDefinition/sfm-Magistrell-Medication");
+    medication->SetStatus(FhirStatus::ACTIVE);
+    {
+        auto prescriptionGroup = magistral->GetPrescriptionGroup();
+        FhirCodeableConcept codeable{prescriptionGroup.getSystem(), prescriptionGroup.getCode(), prescriptionGroup.getDisplay()};
+        medication->AddExtension(std::make_shared<FhirValueExtension>(
+            "http://hl7.no/fhir/StructureDefinition/no-basis-prescriptiongroup",
+            std::make_shared<FhirCodeableConceptValue>(codeable)
+        ));
+    }
+    medication->AddExtension(std::make_shared<FhirValueExtension>(
+        "http://ehelse.no/fhir/StructureDefinition/sfm-name",
+        std::make_shared<FhirString>(magistral->GetName())
+    ));
+    medication->AddExtension(std::make_shared<FhirValueExtension>(
+        "http://ehelse.no/fhir/StructureDefinition/sfm-recipe",
+        std::make_shared<FhirString>(magistral->GetRecipe())
+    ));
+    std::string medicationFullUrl{"urn:uuid:"};
+    {
+        boost::uuids::random_generator generator;
+        boost::uuids::uuid randomUUID = generator();
+        auto id = boost::uuids::to_string(randomUUID);
+        medicationFullUrl.append(id);
+    }
+    FhirBundleEntry bundleEntry{medicationFullUrl, medication};
+    return {bundleEntry};
+}
+
+std::vector<FhirBundleEntry> CreatePrescriptionService::CreateFhirMedication(const std::shared_ptr<Medication> &medication) const {
+    {
+        auto magistralMedication = std::dynamic_pointer_cast<MagistralMedication>(medication);
+        if (magistralMedication) {
+            return CreateFhirMedicationFromMagistral(magistralMedication);
+        }
+    }
+    return {};
+}
+
+FhirBundleEntry CreatePrescriptionService::CreateFhirMedicationStatement(const Prescription &prescription, std::vector<FhirBundleEntry> &practitioners) {
+    std::string prescribedByReference{};
+    std::string prescribedByDisplay{};
+    {
+        Person prescribedBy{};
+        {
+            PersonStorage personStorage{};
+            auto prescribedById = prescription.GetPrescribedBy();
+            if (prescribedById.empty()) {
+                return {};
+            }
+            prescribedBy = personStorage.GetById(prescribedById);
+            if (prescribedBy.GetId().empty() || prescribedBy.GetFodselsnummer().empty()) {
+                return {};
+            }
+        }
+        for (const auto &practitionerEntry : practitioners) {
+            auto practitioner = std::dynamic_pointer_cast<FhirPerson>(practitionerEntry.GetResource());
+            if (practitioner) {
+                bool matching{false};
+                for (const auto &identifier : practitioner->GetIdentifiers()) {
+                    if (identifier.GetSystem() == "urn:oid:2.16.578.1.12.4.1.4.1" &&
+                        identifier.GetValue() == prescribedBy.GetFodselsnummer()) {
+                        matching = true;
+                        break;
+                    }
+                }
+                if (matching) {
+                    prescribedByReference = practitionerEntry.GetFullUrl();
+                    prescribedByDisplay = practitioner->GetDisplay();
+                }
+            }
+        }
+        if (prescribedByReference.empty()) {
+            auto practitioner = std::make_shared<FhirPractitioner>();
+            practitioner->SetActive(true);
+            practitioner->SetBirthDate(prescribedBy.GetDateOfBirth());
+            practitioner->SetGender(prescribedBy.GetGender() == PersonGender::FEMALE ? "female" : "male");
+            {
+                boost::uuids::random_generator generator;
+                boost::uuids::uuid randomUUID = generator();
+                auto id = boost::uuids::to_string(randomUUID);
+                practitioner->SetId(id);
+            }
+            {
+                std::vector<FhirIdentifier> identifiers{};
+                auto hpr = prescribedBy.GetHpr();
+                if (!hpr.empty()) {
+                    FhirCodeableConcept type{"http://hl7.no/fhir/NamingSystem/HPR", "HPR-nummer", ""};
+                    identifiers.emplace_back(type, "official", "urn:oid:2.16.578.1.12.4.1.4.4", hpr);
+                }
+                auto fnr = prescribedBy.GetFodselsnummer();
+                if (!fnr.empty()) {
+                    FhirCodeableConcept type{"http://hl7.no/fhir/NamingSystem/FNR", "FNR-nummer", ""};
+                    identifiers.emplace_back(type, "official", "urn:oid:2.16.578.1.12.4.1.4.1", fnr);
+                }
+                practitioner->SetIdentifiers(identifiers);
+            }
+            practitioner->SetProfile("http://ehelse.no/fhir/StructureDefinition/sfm-Practitioner");
+            {
+                FhirName name{"official", prescribedBy.GetFamilyName(), prescribedBy.GetGivenName()};
+                practitioner->SetName({name});
+            }
+            std::string fullUrl{"urn:uuid:"};
+            {
+                boost::uuids::random_generator generator;
+                boost::uuids::uuid randomUUID = generator();
+                auto id = boost::uuids::to_string(randomUUID);
+                fullUrl.append(id);
+            }
+            practitioners.emplace_back(fullUrl, practitioner);
+            prescribedByReference = std::move(fullUrl);
+            prescribedByDisplay = practitioner->GetDisplay();
+        }
+    }
+    auto medicationStatement = std::make_shared<FhirMedicationStatement>();
+    {
+        FhirDosage dosage{prescription.GetDssn(), 1};
+        {
+            auto use = prescription.GetUse();
+            FhirCodeableConcept codeable{use.getSystem(), use.getCode(), use.getDisplay()};
+            dosage.AddExtension(std::make_shared<FhirValueExtension>(
+                "http://ehelse.no/fhir/StructureDefinition/sfm-use",
+                std::make_shared<FhirCodeableConceptValue>(codeable)
+            ));
+        }
+        {
+            auto ext = std::make_shared<FhirExtension>("http://ehelse.no/fhir/StructureDefinition/sfm-application-area");
+            ext->AddExtension(std::make_shared<FhirValueExtension>("text", std::make_shared<FhirString>(prescription.GetApplicationArea())));
+            dosage.AddExtension(ext);
+        }
+        medicationStatement->AddDosage(dosage);
+    }
+    {
+        boost::uuids::random_generator generator;
+        boost::uuids::uuid randomUUID = generator();
+        auto id = boost::uuids::to_string(randomUUID);
+        medicationStatement->SetId(id);
+    }
+    {
+        FhirCodeableConcept type{"ReseptId"};
+        FhirIdentifier identifier{type, "usual", prescription.GetId()};
+        medicationStatement->AddIdentifier(identifier);
+    }
+    medicationStatement->SetProfile("http://ehelse.no/fhir/StructureDefinition/sfm-MedicationStatement");
+    medicationStatement->SetStatus(FhirStatus::ACTIVE);
+    {
+        auto reseptAmendment = std::make_shared<FhirExtension>("http://ehelse.no/fhir/StructureDefinition/sfm-reseptamendment");
+        {
+            auto value = prescription.GetPrescriptionDate();
+            if (!value.empty()) {
+                reseptAmendment->AddExtension(std::make_shared<FhirValueExtension>(
+                        "reseptdate",
+                        std::make_shared<FhirString>(value)
+                ));
+            }
+        }
+        {
+            auto value = prescription.GetExpirationDate();
+            if (!value.empty()) {
+                reseptAmendment->AddExtension(std::make_shared<FhirValueExtension>(
+                        "expirationdate",
+                        std::make_shared<FhirString>(value)
+                ));
+            }
+        }
+        {
+            auto value = prescription.GetFestUpdate();
+            if (!value.empty()) {
+                reseptAmendment->AddExtension(std::make_shared<FhirValueExtension>(
+                        "festUpdate",
+                        std::make_shared<FhirString>(value)
+                ));
+            }
+        }
+        // TODO
+        reseptAmendment->AddExtension(std::make_shared<FhirValueExtension>(
+                "guardiantransparencyreservation",
+                std::make_shared<FhirBooleanValue>(false)
+        ));
+        // TODO
+        reseptAmendment->AddExtension(std::make_shared<FhirValueExtension>(
+                "indoctorsname",
+                std::make_shared<FhirBooleanValue>(false)
+        ));
+        {
+            auto value = prescription.GetDssn();
+            if (!value.empty()) {
+                reseptAmendment->AddExtension(std::make_shared<FhirValueExtension>(
+                        "dssn",
+                        std::make_shared<FhirString>(value)
+                ));
+            }
+        }
+        // TODO
+        reseptAmendment->AddExtension(std::make_shared<FhirValueExtension>(
+                "lockedresept",
+                std::make_shared<FhirBooleanValue>(false)
+        ));
+        {
+            auto value = prescription.GetNumberOfPackages();
+            reseptAmendment->AddExtension(std::make_shared<FhirValueExtension>(
+                    "numberofpackages",
+                    std::make_shared<FhirDecimalValue>(value)
+            ));
+        }
+        {
+            auto value = prescription.GetReit();
+            if (!value.empty()) {
+                reseptAmendment->AddExtension(std::make_shared<FhirValueExtension>(
+                        "reit",
+                        std::make_shared<FhirString>(value)
+                ));
+            }
+        }
+        {
+            auto value = prescription.GetItemGroup();
+            FhirCodeableConcept codeable{value.getSystem(), value.getCode(), value.getDisplay()};
+            if (codeable.IsSet()) {
+                reseptAmendment->AddExtension(std::make_shared<FhirValueExtension>(
+                        "itemgroup",
+                        std::make_shared<FhirCodeableConceptValue>(codeable)
+                ));
+            }
+        }
+        {
+            // TODO
+            Code value{};
+            FhirCodeableConcept codeable{value.getSystem(), value.getCode(), value.getDisplay()};
+            if (codeable.IsSet()) {
+                reseptAmendment->AddExtension(std::make_shared<FhirValueExtension>(
+                        "reimbursementparagraph",
+                        std::make_shared<FhirCodeableConceptValue>(codeable)
+                ));
+            }
+        }
+        {
+            auto value = prescription.GetRfStatus();
+            FhirCodeableConcept codeable{value.getSystem(), value.getCode(), value.getDisplay()};
+            if (codeable.IsSet()) {
+                auto ext = std::make_shared<FhirExtension>("rfstatus");
+                ext->AddExtension(std::make_shared<FhirValueExtension>(
+                        "status",
+                        std::make_shared<FhirCodeableConceptValue>(codeable)
+                ));
+                reseptAmendment->AddExtension(ext);
+            }
+        }
+        {
+            auto value = prescription.GetTypeOfPrescription();
+            FhirCodeableConcept codeable{value.getSystem(), value.getCode(), value.getDisplay()};
+            if (codeable.IsSet()) {
+                reseptAmendment->AddExtension(std::make_shared<FhirValueExtension>(
+                        "typeresept",
+                        std::make_shared<FhirCodeableConceptValue>(codeable)
+                ));
+            }
+        }
+        medicationStatement->AddExtension(reseptAmendment);
+    }
+    {
+        auto regInfo = std::make_shared<FhirExtension>("http://ehelse.no/fhir/StructureDefinition/sfm-regInfo");
+        {
+            {
+                FhirCodeableConcept codeable{
+                        "http://ehelse.no/fhir/CodeSystem/sfm-medicationstatement-registration-status", "3",
+                        "Godkjent"};
+                regInfo->AddExtension(std::make_shared<FhirValueExtension>(
+                        "status",
+                        std::make_shared<FhirCodeableConceptValue>(codeable)
+                ));
+            }
+            {
+                FhirCodeableConcept codeable{"http://ehelse.no/fhir/CodeSystem/sfm-performer-roles", "1",
+                                             "Forskrevet av"};
+                regInfo->AddExtension(std::make_shared<FhirValueExtension>(
+                        "type",
+                        std::make_shared<FhirCodeableConceptValue>(codeable)
+                ));
+            }
+            regInfo->AddExtension(std::make_shared<FhirValueExtension>(
+                    "provider",
+                    std::make_shared<FhirReference>(prescribedByReference, "http://ehelse.no/fhir/StructureDefinition/sfm-Practitioner", prescribedByDisplay)
+            ));
+            auto timestamp = prescription.GetPrescribedTimestamp();
+            if (!timestamp.empty()) {
+                regInfo->AddExtension(std::make_shared<FhirValueExtension>(
+                        "timestamp",
+                        std::make_shared<FhirDateTimeValue>(timestamp)
+                ));
+            }
+        }
+        medicationStatement->AddExtension(regInfo);
+    }
+    {
+        auto ext = std::make_shared<FhirExtension>("http://ehelse.no/fhir/StructureDefinition/sfm-generic-substitution");
+        ext->AddExtension(std::make_shared<FhirValueExtension>(
+                "genericSubstitutionAccepted",
+                std::make_shared<FhirBooleanValue>(prescription.IsGenericSubstitutionAcceptd())
+        ));
+        medicationStatement->AddExtension(ext);
+    }
+    std::string fullUrl{"urn:uuid:"};
+    {
+        boost::uuids::random_generator generator;
+        boost::uuids::uuid randomUUID = generator();
+        auto id = boost::uuids::to_string(randomUUID);
+        fullUrl.append(id);
+    }
+    return {fullUrl, medicationStatement};
 }

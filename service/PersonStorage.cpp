@@ -65,7 +65,7 @@ void PersonStorage::Store(const Person &person) {
     }
 }
 
-Person PersonStorage::GetById(const std::string &id) const {
+Person PersonStorage::GetRawById(const std::string &id) const {
     std::string clob = DataDirectory::Data("sfmbasisfaker").Sub("person").ReadFile(id);
     if (clob.empty()) {
         return {};
@@ -82,12 +82,30 @@ Person PersonStorage::GetById(const std::string &id) const {
     return person;
 }
 
-void PersonStorage::AddHpr(Person &person) const {
+void PersonStorage::AddFnr(Person &person) const {
     auto id = person.GetId();
     if (id.empty()) {
         return;
     }
     std::string clob = DataDirectory::Data("sfmbasisfaker").Sub("person").ReadFile("fnr.json");
+    if (clob.empty()) {
+        return;
+    }
+    auto map = web::json::value::parse(clob);
+    for (const auto &pair : map.as_object()) {
+        if (pair.second.as_string() == id) {
+            person.SetFodselsnummer(pair.first);
+            return;
+        }
+    }
+}
+
+void PersonStorage::AddHpr(Person &person) const {
+    auto id = person.GetId();
+    if (id.empty()) {
+        return;
+    }
+    std::string clob = DataDirectory::Data("sfmbasisfaker").Sub("person").ReadFile("hpr.json");
     if (clob.empty()) {
         return;
     }
@@ -114,9 +132,18 @@ Person PersonStorage::GetByFodselsnummer(const std::string &fodselsnummer) const
         if (!fnr.has_string_field(fodselsnummer)) {
             return {};
         }
-        person = GetById(fnr.at(fodselsnummer).as_string());
+        person = GetRawById(fnr.at(fodselsnummer).as_string());
     }
     person.SetFodselsnummer(fodselsnummer);
     AddHpr(person);
+    return person;
+}
+
+Person PersonStorage::GetById(const std::string &id) const {
+    Person person = GetRawById(id);
+    if (!id.empty()) {
+        AddHpr(person);
+        AddFnr(person);
+    }
     return person;
 }

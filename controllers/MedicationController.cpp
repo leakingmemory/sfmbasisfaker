@@ -203,12 +203,75 @@ FhirParameters MedicationController::GetMedication(const std::string &selfUrl, c
             p.SetAddress(fhirPatient.GetAddress());
         }
     }
+    std::vector<FhirBundleEntry> practitioners{};
+    practitioners.emplace_back(practitionerEntry);
+    std::vector<FhirBundleEntry> medicamentEntries{};
+    std::vector<FhirBundleEntry> medicationStatementEntries{};
+    std::vector<FhirReference> medicationSectionEntries{};
+    {
+        PrescriptionStorage prescriptionStorage{};
+        CreatePrescriptionService createPrescriptionService{};
+        auto lookupList = prescriptionStorage.LoadPatientMap(patient.GetId());
+        for (const auto &lookup : lookupList) {
+            auto prescription = prescriptionStorage.Load(patient.GetId(), lookup);
+            auto medications = createPrescriptionService.CreateFhirMedication(prescription.GetMedication());
+            if (medications.empty()) {
+                continue;
+            }
+            auto medicationStatement = createPrescriptionService.CreateFhirMedicationStatement(prescription, practitioners);
+            std::string medicationStatementRef = medicationStatement.GetFullUrl();
+            if (medicationStatementRef.empty()) {
+                continue;
+            }
+            auto medicationStatementResource = std::dynamic_pointer_cast<FhirMedicationStatement>(medicationStatement.GetResource());
+            if (!medicationStatementResource) {
+                continue;
+            }
+            std::string medicationStatementDisplay = medicationStatementResource->GetDisplay();
+            std::string medicationRef{};
+            std::string medicationType{};
+            std::string medicationDisplay{};
+            {
+                const FhirBundleEntry *lastEntry;
+                for (const auto &entry : medications) {
+                    lastEntry = &entry;
+                    medicamentEntries.emplace_back(entry);
+                }
+                medicationRef = lastEntry->GetFullUrl();
+                const auto &resource = lastEntry->GetResource();
+                {
+                    auto profiles = resource->GetProfile();
+                    if (!profiles.empty()) {
+                        medicationType = profiles[0];
+                    }
+                }
+                medicationDisplay = resource->GetDisplay();
+            }
+            {
+                FhirReference medicationReference{medicationRef, medicationType, medicationDisplay};
+                medicationStatementResource->SetMedicationReference(medicationReference);
+            }
+            {
+                auto patientResource = patientEntry.GetResource();
+                FhirReference subjectReference{patientEntry.GetFullUrl(), "http://ehelse.no/fhir/StructureDefinition/sfm-Patient", patientResource->GetDisplay()};
+                medicationStatementResource->SetSubject(subjectReference);
+            }
+            medicationStatementEntries.emplace_back(medicationStatement);
+            medicationSectionEntries.emplace_back(medicationStatementRef, "http://ehelse.no/fhir/StructureDefinition/sfm-MedicationStatement", medicationStatementDisplay);
+        }
+    }
     FhirCompositionSection medicationSection{};
     medicationSection.SetTitle("Medication");
     medicationSection.SetCode(FhirCodeableConcept("http://ehelse.no/fhir/CodeSystem/sfm-section-types", "sectionMedication", "List of Medication statements"));
     medicationSection.SetTextStatus("generated");
     medicationSection.SetTextXhtml("<xhtml:div xmlns:xhtml=\"http://www.w3.org/1999/xhtml\">List of medications</xhtml:div>");
-    medicationSection.SetEmptyReason(FhirCodeableConcept("http://terminology.hl7.org/CodeSystem/list-empty-reason", "unavailable", "Unavailable"));
+    if (medicationSectionEntries.empty()) {
+        medicationSection.SetEmptyReason(
+                FhirCodeableConcept("http://terminology.hl7.org/CodeSystem/list-empty-reason", "unavailable",
+                                    "Unavailable"));
+    } else {
+        medicationSection.SetEntries(medicationSectionEntries);
+    }
     FhirCompositionSection allergiesSection{};
     allergiesSection.SetTitle("Allergies");
     allergiesSection.SetCode(FhirCodeableConcept("http://ehelse.no/fhir/CodeSystem/sfm-section-types", "sectionAllergies", "Section allergies"));
@@ -270,9 +333,17 @@ FhirParameters MedicationController::GetMedication(const std::string &selfUrl, c
     bundle->SetProfile("http://ehelse.no/fhir/StructureDefinition/sfm-MedicationBundle");
     bundle->SetTimestamp(msgTimestamp);
     bundle->AddEntry(medicationComposition);
-    bundle->AddEntry(practitionerEntry);
     bundle->AddEntry(organizationEntry);
     bundle->AddEntry(patientEntry);
+    for (const auto &entry : practitioners) {
+        bundle->AddEntry(entry);
+    }
+    for (const auto &entry : medicamentEntries) {
+        bundle->AddEntry(entry);
+    }
+    for (const auto &entry : medicationStatementEntries) {
+        bundle->AddEntry(entry);
+    }
     FhirParameters parameters{};
     parameters.AddParameter("medication", bundle);
     parameters.AddParameter("KJHentetTidspunkt", std::make_shared<FhirDateTimeValue>("2023-12-06T14:13:03.7904472+01:00"));
