@@ -424,10 +424,14 @@ std::vector<FhirBundleEntry> CreatePrescriptionService::CreateFhirMedicationFrom
             std::make_shared<FhirCodeableConceptValue>(codeable)
         ));
     }
-    medication->AddExtension(std::make_shared<FhirValueExtension>(
-        "http://ehelse.no/fhir/StructureDefinition/sfm-name",
-        std::make_shared<FhirString>(magistral->GetName())
-    ));
+    {
+        auto name = magistral->GetName();
+        medication->SetName(name);
+        medication->AddExtension(std::make_shared<FhirValueExtension>(
+                "http://ehelse.no/fhir/StructureDefinition/sfm-name",
+                std::make_shared<FhirString>(name)
+        ));
+    }
     medication->AddExtension(std::make_shared<FhirValueExtension>(
         "http://ehelse.no/fhir/StructureDefinition/sfm-recipe",
         std::make_shared<FhirString>(magistral->GetRecipe())
