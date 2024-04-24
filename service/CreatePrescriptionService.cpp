@@ -88,6 +88,57 @@ Person CreatePrescriptionService::GetPerson(const FhirBundle &bundle, const std:
     return {};
 }
 
+static bool SetCommonValues(Medication &medicationObject, const std::string &atc, const std::string &atcDisplay, const FhirMedication &medication, std::vector<std::shared_ptr<FhirValueExtension>> &otherValueExtensions, std::vector<std::shared_ptr<FhirExtension>> &otherExtensions) {
+    medicationObject.SetAtc(atc, atcDisplay);
+    FhirCoding form{};
+    {
+        auto formCodings = medication.GetForm().GetCoding();
+        if (formCodings.empty()) {
+            return false;
+        }
+        form = formCodings[0];
+    }
+    medicationObject.SetForm({form.GetCode(), form.GetDisplay(), form.GetSystem()});
+    auto extensions = medication.GetExtensions();
+    for (const auto &extension : extensions) {
+        auto url = extension->GetUrl();
+        auto valueExtension = std::dynamic_pointer_cast<FhirValueExtension>(extension);
+        std::shared_ptr<FhirValue> value{};
+        if (valueExtension) {
+            value = valueExtension->GetValue();
+        }
+        if (url == "http://hl7.no/fhir/StructureDefinition/no-basis-prescriptiongroup" && !value.operator bool()) {
+            auto subexts = extension->GetExtensions();
+            if (subexts.size() != 1) {
+                otherExtensions.emplace_back(extension);
+                continue;
+            }
+            auto subext = std::dynamic_pointer_cast<FhirValueExtension>(subexts[0]);
+            if (!subext || subext->GetUrl() != "prescriptiongroup") {
+                otherExtensions.emplace_back(extension);
+                continue;
+            }
+            value = subext->GetValue();
+            auto codeableConceptValue = std::dynamic_pointer_cast<FhirCodeableConceptValue>(value);
+            if (codeableConceptValue) {
+                auto codings = codeableConceptValue->GetCoding();
+                if (!codings.empty()) {
+                    auto coding = codings[0];
+                    medicationObject.SetPrescriptionGroup({coding.GetCode(), coding.GetDisplay(), coding.GetSystem()});
+                }
+            } else {
+                otherExtensions.emplace_back(extension);
+            }
+            continue;
+        } else if (valueExtension) {
+            otherValueExtensions.emplace_back(valueExtension);
+        } else {
+            otherExtensions.emplace_back(extension);
+        }
+    }
+    return true;
+}
+
 std::shared_ptr<Medication>
 CreatePrescriptionService::CreateMedication(const FhirReference &medicationReference, const FhirBundle &bundle) const {
     std::shared_ptr<FhirMedication> medication{};
@@ -109,15 +160,40 @@ CreatePrescriptionService::CreateMedication(const FhirReference &medicationRefer
         }
     }
     FhirCoding code{};
+    std::string atc{};
+    std::string atcDisplay{};
+    std::string festCode{};
+    std::string festDisplay{};
     {
         auto codeCoding = medication->GetCode().GetCoding();
         if (codeCoding.empty()) {
             return {};
         }
-        code = codeCoding[0];
+        for (const auto &c : codeCoding) {
+            if (c.GetSystem() == "urn:oid:2.16.578.1.12.4.1.1.7424") {
+                if (code.GetCode().empty()) {
+                    code = c;
+                } else {
+                    return {};
+                }
+            }
+            if (c.GetSystem() == "http://www.whocc.no/atc") {
+                atc = c.GetCode();
+                atcDisplay = c.GetDisplay();
+            }
+            if (c.GetSystem() == "http://ehelse.no/fhir/CodeSystem/FEST") {
+                festCode = c.GetCode();
+                festDisplay = c.GetDisplay();
+            }
+        }
     }
-    if (code.GetCode() == "10") /* Magistrell */ {
+    if (code.GetSystem() == "urn:oid:2.16.578.1.12.4.1.1.7424" && code.GetCode() == "10") /* Magistrell */ {
         auto medicationObject = std::make_shared<MagistralMedication>();
+        std::vector<std::shared_ptr<FhirValueExtension>> otherValueExtensions{};
+        std::vector<std::shared_ptr<FhirExtension>> otherExtensions{};
+        if (!SetCommonValues(*medicationObject, atc, atcDisplay, *medication, otherValueExtensions, otherExtensions)) {
+            return {};
+        }
         auto amount = medication->GetAmount();
         auto amountNumerator = amount.GetNumerator();
         auto amountDenomerator = amount.GetDenominator();
@@ -129,33 +205,14 @@ CreatePrescriptionService::CreateMedication(const FhirReference &medicationRefer
         }
         medicationObject->SetAmount(amountNumerator.GetValue());
         medicationObject->SetAmountUnit(amountNumerator.GetUnit());
-        FhirCoding form{};
-        {
-            auto formCodings = medication->GetForm().GetCoding();
-            if (formCodings.empty()) {
-                return {};
-            }
-            form = formCodings[0];
-        }
-        medicationObject->SetForm({form.GetCode(), form.GetDisplay(), form.GetSystem()});
         auto extensions = medication->GetExtensions();
-        for (const auto &extension : extensions) {
-            auto url = extension->GetUrl();
-            auto valueExtension = std::dynamic_pointer_cast<FhirValueExtension>(extension);
+        for (const auto &valueExtension : otherValueExtensions) {
+            auto url = valueExtension->GetUrl();
             std::shared_ptr<FhirValue> value{};
             if (valueExtension) {
                 value = valueExtension->GetValue();
             }
-            if (url == "http://hl7.no/fhir/StructureDefinition/no-basis-prescriptiongroup" && value.operator bool()) {
-                auto codeableConceptValue = std::dynamic_pointer_cast<FhirCodeableConceptValue>(value);
-                if (codeableConceptValue) {
-                    auto codings = codeableConceptValue->GetCoding();
-                    if (!codings.empty()) {
-                        auto coding = codings[0];
-                        medicationObject->SetPrescriptionGroup({coding.GetCode(), coding.GetDisplay(), coding.GetSystem()});
-                    }
-                }
-            } else if (url == "http://ehelse.no/fhir/StructureDefinition/sfm-name" && value.operator bool()) {
+            if (url == "http://ehelse.no/fhir/StructureDefinition/sfm-name" && value.operator bool()) {
                 auto stringValue = std::dynamic_pointer_cast<FhirString>(value);
                 if (stringValue) {
                     medicationObject->SetName(stringValue->GetValue());
@@ -168,6 +225,105 @@ CreatePrescriptionService::CreateMedication(const FhirReference &medicationRefer
             }
         }
         return medicationObject;
+    } else if (!festCode.empty()) {
+        std::shared_ptr<FhirExtension> medicationDetails{};
+        {
+            auto extensions = medication->GetExtensions();
+            for (const auto &extension: extensions) {
+                if (extension->GetUrl() == "http://ehelse.no/fhir/StructureDefinition/sfm-medicationdetails") {
+                    if (medicationDetails) {
+                        return {};
+                    }
+                    medicationDetails = extension;
+                }
+            }
+        }
+        if (!medicationDetails) {
+            return {};
+        }
+        std::string registreringstypeCode{};
+        std::vector<std::shared_ptr<FhirExtension>> medicationDetailsExtensions{};
+        {
+            FhirCoding registreringstypeCoding{};
+            {
+                FhirCodeableConcept registreringstype{};
+                {
+                    auto extensions = medicationDetails->GetExtensions();
+                    for (const auto &extension: extensions) {
+                        if (extension->GetUrl() == "registreringstype") {
+                            auto valueExt = std::dynamic_pointer_cast<FhirValueExtension>(extension);
+                            if (valueExt) {
+                                auto value = std::dynamic_pointer_cast<FhirCodeableConceptValue>(valueExt->GetValue());
+                                if (value) {
+                                    registreringstype = *value;
+                                }
+                            }
+                        } else {
+                            medicationDetailsExtensions.emplace_back(extension);
+                        }
+                    }
+                }
+                auto registreringstypeCodings = registreringstype.GetCoding();
+                if (registreringstypeCodings.empty()) {
+                    return {};
+                }
+                registreringstypeCoding = registreringstypeCodings[0];
+            }
+            if (registreringstypeCoding.GetSystem() != "http://ehelse.no/fhir/CodeSystem/sfm-festregistrationtype") {
+                return {};
+            }
+            registreringstypeCode = registreringstypeCoding.GetCode();
+        }
+        if (registreringstypeCode == "3") {
+            auto medicationObject = std::make_shared<PackageMedication>(festCode, festDisplay);
+            std::vector<std::shared_ptr<FhirValueExtension>> otherValueExtensions{};
+            std::vector<std::shared_ptr<FhirExtension>> otherExtensions{};
+            if (!SetCommonValues(*medicationObject, atc, atcDisplay, *medication, otherValueExtensions, otherExtensions)) {
+                return {};
+            }
+            std::vector<PackingInfoPrescription> packingInfoPrescription{};
+            for (const auto &extension : medicationDetailsExtensions) {
+                if (extension->GetUrl() == "packinginfoprescription") {
+                    auto &pi = packingInfoPrescription.emplace_back();
+                    auto subext = extension->GetExtensions();
+                    for (const auto &sube : subext) {
+                        auto valext = std::dynamic_pointer_cast<FhirValueExtension>(sube);
+                        if (!valext) {
+                            continue;
+                        }
+                        auto key = sube->GetUrl();
+                        if (key == "name") {
+                            auto str = std::dynamic_pointer_cast<FhirString>(valext->GetValue());
+                            if (!str) {
+                                continue;
+                            }
+                            pi.SetName(str->GetValue());
+                        } else if (key == "packingsize") {
+                            auto str = std::dynamic_pointer_cast<FhirString>(valext->GetValue());
+                            if (!str) {
+                                continue;
+                            }
+                            pi.SetPackingSize(str->GetValue());
+                        } else if (key == "packingunit") {
+                            auto codeable = std::dynamic_pointer_cast<FhirCodeableConceptValue>(valext->GetValue());
+                            if (!codeable) {
+                                continue;
+                            }
+                            auto codings = codeable->GetCoding();
+                            if (codings.size() != 1) {
+                                continue;
+                            }
+                            auto coding = codings[0];
+                            pi.SetPackingUnit(Code(coding.GetCode(), coding.GetDisplay(), coding.GetSystem()));
+                        }
+                    }
+                }
+            }
+            medicationObject->SetPackageInfoPrescription(packingInfoPrescription);
+            return medicationObject;
+        } else {
+            return {};
+        }
     } else {
         return {};
     }

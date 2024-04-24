@@ -7,30 +7,18 @@
 
 web::json::value Medication::Serialize() const {
     auto obj = web::json::value::object();
-    obj["amount"] = web::json::value::number(amount);
-    obj["amountUnit"] = web::json::value::string(amountUnit);
     obj["code"] = code.Serialize();
     obj["prescriptionGroup"] = prescriptionGroup.Serialize();
     obj["form"] = form.Serialize();
-    obj["name"] = web::json::value::string(name);
     return obj;
 }
 
 void Medication::ParseInline(const web::json::value &json) {
-    if (json.has_number_field("amount")) {
-        amount = json.at("amount").as_double();
-    }
-    if (json.has_string_field("amountUnit")) {
-        amountUnit = json.at("amountUnit").as_string();
-    }
     if (json.has_object_field("prescriptionGroup")) {
         prescriptionGroup = Code::Parse(json.at("prescriptionGroup"));
     }
     if (json.has_object_field("form")) {
         form = Code::Parse(json.at("form"));
-    }
-    if (json.has_string_field("name")) {
-        name = json.at("name").as_string();
     }
 }
 
@@ -38,8 +26,9 @@ std::shared_ptr<Medication> Medication::Parse(const web::json::value &json) {
     std::shared_ptr<Medication> medication{};
     if (json.has_object_field("code")) {
         auto code = Code::Parse(json.at("code"));
+        auto systemValue = code.getSystem();
         auto codeValue = code.getCode();
-        if (codeValue == "10") {
+        if (systemValue == "urn:oid:2.16.578.1.12.4.1.1.7424" && codeValue == "10") {
             medication = std::make_shared<MagistralMedication>();
         }
         if (medication) {
@@ -52,14 +41,68 @@ std::shared_ptr<Medication> Medication::Parse(const web::json::value &json) {
 
 web::json::value MagistralMedication::Serialize() const {
     auto obj = Medication::Serialize();
+    obj["amount"] = web::json::value::number(amount);
+    obj["amountUnit"] = web::json::value::string(amountUnit);
+    obj["name"] = web::json::value::string(name);
     obj["recipe"] = web::json::value::string(recipe);
     return obj;
 }
 
 void MagistralMedication::ParseInline(const web::json::value &json) {
     Medication::ParseInline(json);
+    if (json.has_number_field("amount")) {
+        amount = json.at("amount").as_double();
+    }
+    if (json.has_string_field("amountUnit")) {
+        amountUnit = json.at("amountUnit").as_string();
+    }
+    if (json.has_string_field("name")) {
+        name = json.at("name").as_string();
+    }
     if (json.has_string_field("recipe")) {
         recipe = json.at("recipe").as_string();
+    }
+}
+
+web::json::value PackingInfoPrescription::Serialize() const {
+    auto obj = web::json::value::object();
+    obj["name"] = web::json::value::string(name);
+    obj["packingsize"] = web::json::value::string(packingSize);
+    obj["packingunit"] = packingUnit.Serialize();
+    return obj;
+}
+
+void PackingInfoPrescription::ParseInline(const web::json::value &json) {
+    if (json.has_string_field("name")) {
+        name = json.at("name").as_string();
+    }
+    if (json.has_string_field("packingsize")) {
+        packingSize = json.at("packingsize").as_string();
+    }
+    if (json.has_object_field("packingunit")) {
+        packingUnit = Code::Parse(json.at("packingunit"));
+    }
+}
+
+web::json::value PackageMedication::Serialize() const {
+    auto obj = Medication::Serialize();
+    auto infoArr = web::json::value::array(packageInfoPrescription.size());
+    typeof(packageInfoPrescription.size()) i = 0;
+    for (const auto &pi : packageInfoPrescription) {
+        infoArr[i++] = pi.Serialize();
+    }
+    obj["packinginfoprescription"] = infoArr;
+    return obj;
+}
+
+void PackageMedication::ParseInline(const web::json::value &json) {
+    Medication::ParseInline(json);
+    if (json.has_array_field("packinginfoprescription")) {
+        auto arr = json.at("packinginfoprescription").as_array();
+        for (const auto &item : arr) {
+            auto &pi = packageInfoPrescription.emplace_back();
+            pi.ParseInline(item);
+        }
     }
 }
 

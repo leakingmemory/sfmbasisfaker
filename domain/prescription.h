@@ -8,6 +8,7 @@
 #include "code.h"
 #include <string>
 #include <memory>
+#include <vector>
 
 namespace web::json {
     class value;
@@ -15,15 +16,53 @@ namespace web::json {
 
 class Medication {
 private:
-    double amount;
-    std::string amountUnit;
     Code code;
     Code prescriptionGroup;
     Code form;
-    std::string name;
+    std::string atc;
+    std::string atcDisplay;
 public:
     Medication(const Code &code) : code(code) {}
     virtual ~Medication() = default;
+    [[nodiscard]] Code GetCode() const {
+        return code;
+    }
+    [[nodiscard]] Code GetPrescriptionGroup() const {
+        return prescriptionGroup;
+    }
+    void SetPrescriptionGroup(const Code &prescriptionGroup) {
+        this->prescriptionGroup = prescriptionGroup;
+    }
+    [[nodiscard]] Code GetForm() const {
+        return form;
+    }
+    void SetForm(const Code &form) {
+        this->form = form;
+    }
+    [[nodiscard]] std::string GetAtc() const {
+        return atc;
+    }
+    [[nodiscard]] std::string GetAtcDisplay() const {
+        return atcDisplay;
+    }
+    void SetAtc(const std::string &code, const std::string &display) {
+        atc = code;
+        atcDisplay = display;
+    }
+
+    virtual web::json::value Serialize() const;
+    virtual void ParseInline(const web::json::value &json);
+    static std::shared_ptr<Medication> Parse(const web::json::value &json);
+};
+
+class MagistralMedication : public Medication {
+private:
+    double amount;
+    std::string amountUnit;
+    std::string name;
+    std::string recipe;
+public:
+    MagistralMedication() : Medication({"10", "Magistrell", "urn:oid:2.16.578.1.12.4.1.1.7424"}) {}
     double GetAmount() const {
         return amount;
     }
@@ -36,38 +75,12 @@ public:
     void SetAmountUnit(const std::string &amountUnit) {
         this->amountUnit = amountUnit;
     }
-    [[nodiscard]] Code GetCode() const {
-        return code;
-    }
-    [[nodiscard]] Code GetPrescriptionGroup() const {
-        return prescriptionGroup;
-    }
-    void SetPrescriptionGroup(const Code &prescriptionGroup) {
-        this->prescriptionGroup = prescriptionGroup;
-    }
     [[nodiscard]] std::string GetName() const {
         return name;
     }
     void SetName(const std::string &name) {
         this->name = name;
     }
-    [[nodiscard]] Code GetForm() const {
-        return form;
-    }
-    void SetForm(const Code &form) {
-        this->form = form;
-    }
-
-    virtual web::json::value Serialize() const;
-    virtual void ParseInline(const web::json::value &json);
-    static std::shared_ptr<Medication> Parse(const web::json::value &json);
-};
-
-class MagistralMedication : public Medication {
-private:
-    std::string recipe;
-public:
-    MagistralMedication() : Medication({"10", "Magistrell", "urn:oid:2.16.578.1.12.4.1.1.7424"}) {}
     [[nodiscard]] std::string GetRecipe() const {
         return recipe;
     }
@@ -75,6 +88,55 @@ public:
         this->recipe = recipe;
     }
 
+    web::json::value Serialize() const override;
+    void ParseInline(const web::json::value &json) override;
+};
+
+class PackingInfoPrescription {
+private:
+    std::string name{};
+    std::string packingSize{};
+    Code packingUnit{};
+public:
+
+    [[nodiscard]] std::string GetName() const {
+        return name;
+    }
+
+    void SetName(const std::string &name) {
+        this->name = name;
+    }
+
+    [[nodiscard]] std::string GetPackingSize() const {
+        return packingSize;
+    }
+
+    void SetPackingSize(const std::string &packingSize) {
+        this->packingSize = packingSize;
+    }
+
+    [[nodiscard]] Code GetPackingUnit() const {
+        return packingUnit;
+    }
+
+    void SetPackingUnit(const Code &packingUnit) {
+        this->packingUnit = packingUnit;
+    }
+    web::json::value Serialize() const;
+    void ParseInline(const web::json::value &json);
+};
+
+class PackageMedication : public Medication {
+private:
+    std::vector<PackingInfoPrescription> packageInfoPrescription{};
+public:
+    PackageMedication(const std::string &varenr, const std::string &display) : Medication({varenr, display, "Varenummer"}) {}
+    void SetPackageInfoPrescription(const std::vector<PackingInfoPrescription> &packageInfoPrescription) {
+        this->packageInfoPrescription = packageInfoPrescription;
+    }
+    [[nodiscard]] std::vector<PackingInfoPrescription> GetPackageInfoPrescription() const {
+        return packageInfoPrescription;
+    }
     web::json::value Serialize() const override;
     void ParseInline(const web::json::value &json) override;
 };
