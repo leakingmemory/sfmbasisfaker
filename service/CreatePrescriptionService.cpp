@@ -274,7 +274,15 @@ CreatePrescriptionService::CreateMedication(const FhirReference &medicationRefer
             }
             registreringstypeCode = registreringstypeCoding.GetCode();
         }
-        if (registreringstypeCode == "3") {
+        if (registreringstypeCode == "2") {
+            auto medicationObject = std::make_shared<BrandNameMedication>(festCode, festDisplay);
+            std::vector<std::shared_ptr<FhirValueExtension>> otherValueExtensions{};
+            std::vector<std::shared_ptr<FhirExtension>> otherExtensions{};
+            if (!SetCommonValues(*medicationObject, atc, atcDisplay, *medication, otherValueExtensions, otherExtensions)) {
+                return {};
+            }
+            return medicationObject;
+        } else if (registreringstypeCode == "3") {
             auto medicationObject = std::make_shared<PackageMedication>(festCode, festDisplay);
             std::vector<std::shared_ptr<FhirValueExtension>> otherValueExtensions{};
             std::vector<std::shared_ptr<FhirExtension>> otherExtensions{};
@@ -431,6 +439,12 @@ CreatePrescriptionService::CreatePrescription(const std::shared_ptr<FhirMedicati
                     auto stringVal = std::dynamic_pointer_cast<FhirString>(value);
                     if (stringVal) {
                         prescription.SetDssn(stringVal->GetValue());
+                    }
+                } else if (url == "amount") {
+                    auto quantityValue = std::dynamic_pointer_cast<FhirQuantityValue>(value);
+                    if (quantityValue) {
+                        prescription.SetAmountUnit(quantityValue->GetUnit());
+                        prescription.SetAmount(quantityValue->GetValue());
                     }
                 } else if (url == "numberofpackages") {
                     auto decimalValue = std::dynamic_pointer_cast<FhirDecimalValue>(value);

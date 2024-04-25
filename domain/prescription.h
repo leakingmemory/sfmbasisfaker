@@ -141,6 +141,11 @@ public:
     void ParseInline(const web::json::value &json) override;
 };
 
+class BrandNameMedication : public Medication {
+public:
+    BrandNameMedication(const std::string &id, const std::string &display) : Medication({id, display, "BrandName"}) {}
+};
+
 class Prescription {
 private:
     std::string id{};
@@ -151,7 +156,9 @@ private:
     std::string expirationDate{};
     std::string festUpdate{};
     std::string dssn{};
-    double numberOfPackages{};
+    std::string amountUnit{};
+    double amount{0.00000};
+    double numberOfPackages{0.00000};
     std::string reit{};
     Code itemGroup{};
     Code rfStatus{};
@@ -209,6 +216,18 @@ public:
     }
     void SetDssn(const std::string &dssn) {
         this->dssn = dssn;
+    }
+    [[nodiscard]] std::string GetAmountUnit() const {
+        return amountUnit;
+    }
+    void SetAmountUnit(const std::string &unit) {
+        amountUnit = unit;
+    }
+    [[nodiscard]] double GetAmount() const {
+        return amount;
+    }
+    void SetAmount(double a) {
+        amount = a;
     }
     [[nodiscard]] double GetNumberOfPackages() const {
         return numberOfPackages;

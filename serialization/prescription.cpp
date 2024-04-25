@@ -40,6 +40,8 @@ std::shared_ptr<Medication> Medication::Parse(const web::json::value &json) {
             medication = std::make_shared<MagistralMedication>();
         } else if (systemValue == "Varenummer") {
             medication = std::make_shared<PackageMedication>(codeValue, code.getDisplay());
+        } else if (systemValue == "BrandName") {
+            medication = std::make_shared<BrandNameMedication>(codeValue, code.getDisplay());
         }
         if (medication) {
             medication->ParseInline(json);
@@ -127,6 +129,8 @@ std::string Prescription::Serialize() const {
     obj["expirationDate"] = web::json::value::string(expirationDate);
     obj["festUpdate"] = web::json::value::string(festUpdate);
     obj["dssn"] = web::json::value::string(dssn);
+    obj["amount"] = web::json::value::number(amount);
+    obj["amountUnit"] = web::json::value::string(amountUnit);
     obj["numberOfPackages"] = web::json::value::number(numberOfPackages);
     obj["reit"] = web::json::value::string(reit);
     obj["itemGroup"] = itemGroup.Serialize();
@@ -166,6 +170,12 @@ Prescription Prescription::Parse(const std::string &json) {
     }
     if (obj.has_string_field("dssn")) {
         prescription.dssn = obj.at("dssn").as_string();
+    }
+    if (obj.has_string_field("amountUnit")) {
+        prescription.amountUnit = obj.at("amountUnit").as_string();
+    }
+    if (obj.has_number_field("amount")) {
+        prescription.amount = obj.at("amount").as_double();
     }
     if (obj.has_number_field("numberOfPackages")) {
         prescription.numberOfPackages = obj.at("numberOfPackages").as_double();
