@@ -10,6 +10,8 @@ web::json::value Medication::Serialize() const {
     obj["code"] = code.Serialize();
     obj["prescriptionGroup"] = prescriptionGroup.Serialize();
     obj["form"] = form.Serialize();
+    obj["atc"] = web::json::value::string(atc);
+    obj["atcDisplay"] = web::json::value::string(atcDisplay);
     return obj;
 }
 
@@ -19,6 +21,12 @@ void Medication::ParseInline(const web::json::value &json) {
     }
     if (json.has_object_field("form")) {
         form = Code::Parse(json.at("form"));
+    }
+    if (json.has_string_field("atc")) {
+        atc = json.at("atc").as_string();
+    }
+    if (json.has_string_field("atcDisplay")) {
+        atcDisplay = json.at("atcDisplay").as_string();
     }
 }
 
@@ -30,9 +38,10 @@ std::shared_ptr<Medication> Medication::Parse(const web::json::value &json) {
         auto codeValue = code.getCode();
         if (systemValue == "urn:oid:2.16.578.1.12.4.1.1.7424" && codeValue == "10") {
             medication = std::make_shared<MagistralMedication>();
+        } else if (systemValue == "Varenummer") {
+            medication = std::make_shared<PackageMedication>(codeValue, code.getDisplay());
         }
         if (medication) {
-            medication->code = code;
             medication->ParseInline(json);
         }
     }

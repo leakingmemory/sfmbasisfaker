@@ -551,35 +551,52 @@ CreatePrescriptionService::CreatePrescription(const std::shared_ptr<FhirMedicati
     return prescription;
 }
 
-std::vector<FhirBundleEntry> CreatePrescriptionService::CreateFhirMedicationFromMagistral(
-        const std::shared_ptr<MagistralMedication> &magistral) const {
-    auto medication = std::make_shared<FhirMedication>();
-    medication->SetAmount({{magistral->GetAmount(), magistral->GetAmountUnit()}, {}});
+std::vector<FhirBundleEntry>
+CreatePrescriptionService::CreateBundleEntryFromMedication(const std::shared_ptr<FhirMedication> &medication) const {
+    std::string medicationFullUrl{"urn:uuid:"};
     {
-        FhirCodeableConcept code{"urn:oid:2.16.578.1.12.4.1.1.7424", "10", "Magistrell"};
-        medication->SetCode(code);
+        boost::uuids::random_generator generator;
+        boost::uuids::uuid randomUUID = generator();
+        auto id = boost::uuids::to_string(randomUUID);
+        medicationFullUrl.append(id);
     }
+    FhirBundleEntry bundleEntry{std::move(medicationFullUrl), medication};
+    return {bundleEntry};
+}
+
+void CreatePrescriptionService::SetCommonFhirMedication(FhirMedication &medication, const Medication &source) const {
     {
-        auto form = magistral->GetForm();
+        auto form = source.GetForm();
         FhirCodeableConcept codeable{form.getSystem(), form.getCode(), form.getDisplay()};
-        medication->SetForm(codeable);
+        medication.SetForm(codeable);
     }
     {
         boost::uuids::random_generator generator;
         boost::uuids::uuid randomUUID = generator();
         auto id = boost::uuids::to_string(randomUUID);
-        medication->SetId(id);
+        medication.SetId(id);
+    }
+    {
+        auto prescriptionGroup = source.GetPrescriptionGroup();
+        FhirCodeableConcept codeable{prescriptionGroup.getSystem(), prescriptionGroup.getCode(), prescriptionGroup.getDisplay()};
+        medication.AddExtension(std::make_shared<FhirValueExtension>(
+                "http://hl7.no/fhir/StructureDefinition/no-basis-prescriptiongroup",
+                std::make_shared<FhirCodeableConceptValue>(codeable)
+        ));
+    }
+}
+
+std::vector<FhirBundleEntry> CreatePrescriptionService::CreateFhirMedicationFromMagistral(
+        const std::shared_ptr<MagistralMedication> &magistral) const {
+    auto medication = std::make_shared<FhirMedication>();
+    SetCommonFhirMedication(*medication, *magistral);
+    medication->SetAmount({{magistral->GetAmount(), magistral->GetAmountUnit()}, {}});
+    {
+        FhirCodeableConcept code{"urn:oid:2.16.578.1.12.4.1.1.7424", "10", "Magistrell"};
+        medication->SetCode(code);
     }
     medication->SetProfile("http://ehelse.no/fhir/StructureDefinition/sfm-Magistrell-Medication");
     medication->SetStatus(FhirStatus::ACTIVE);
-    {
-        auto prescriptionGroup = magistral->GetPrescriptionGroup();
-        FhirCodeableConcept codeable{prescriptionGroup.getSystem(), prescriptionGroup.getCode(), prescriptionGroup.getDisplay()};
-        medication->AddExtension(std::make_shared<FhirValueExtension>(
-            "http://hl7.no/fhir/StructureDefinition/no-basis-prescriptiongroup",
-            std::make_shared<FhirCodeableConceptValue>(codeable)
-        ));
-    }
     {
         auto name = magistral->GetName();
         medication->SetName(name);
@@ -592,15 +609,52 @@ std::vector<FhirBundleEntry> CreatePrescriptionService::CreateFhirMedicationFrom
         "http://ehelse.no/fhir/StructureDefinition/sfm-recipe",
         std::make_shared<FhirString>(magistral->GetRecipe())
     ));
-    std::string medicationFullUrl{"urn:uuid:"};
+    return CreateBundleEntryFromMedication(medication);
+}
+
+std::vector<FhirBundleEntry>
+CreatePrescriptionService::CreateFhirMedicationFromPackage(const std::shared_ptr<PackageMedication> &package) const {
+    auto medication = std::make_shared<FhirMedication>();
+    SetCommonFhirMedication(*medication, *package);
     {
-        boost::uuids::random_generator generator;
-        boost::uuids::uuid randomUUID = generator();
-        auto id = boost::uuids::to_string(randomUUID);
-        medicationFullUrl.append(id);
+        std::vector<FhirCoding> codings{};
+        {
+            auto code = package->GetCode();
+            auto value = code.getCode();
+            if (!value.empty()) {
+                auto display = code.getDisplay();
+                codings.emplace_back("http://ehelse.no/fhir/CodeSystem/FEST", value, display);
+                medication->SetName(display);
+            }
+        }
+        {
+            auto atc = package->GetAtc();
+            if (!atc.empty()) {
+                codings.emplace_back("http://www.whocc.no/atc", atc, package->GetAtcDisplay());
+            }
+        }
+        FhirCodeableConcept code{codings};
+        medication->SetCode(code);
     }
-    FhirBundleEntry bundleEntry{medicationFullUrl, medication};
-    return {bundleEntry};
+    {
+        auto medicationDetails = std::make_shared<FhirExtension>("http://ehelse.no/fhir/StructureDefinition/sfm-medicationdetails");
+        medicationDetails->AddExtension(std::make_shared<FhirValueExtension>("registreringstype", std::make_shared<FhirCodeableConceptValue>(FhirCodeableConcept("http://ehelse.no/fhir/CodeSystem/sfm-festregistrationtype", "3", "Legemiddelpakning"))));
+        {
+            auto pkgInfos = package->GetPackageInfoPrescription();
+            for (const auto &pi : pkgInfos) {
+                auto info = std::make_shared<FhirExtension>("packinginfoprescription");
+                info->AddExtension(std::make_shared<FhirValueExtension>("name", std::make_shared<FhirString>(pi.GetName())));
+                info->AddExtension(std::make_shared<FhirValueExtension>("packingsize", std::make_shared<FhirString>(pi.GetPackingSize())));
+                auto unit = pi.GetPackingUnit();
+                info->AddExtension(std::make_shared<FhirValueExtension>("packingunit", std::make_shared<FhirCodeableConceptValue>(FhirCodeableConcept(unit.getSystem(), unit.getCode(), unit.getDisplay()))));
+                medicationDetails->AddExtension(info);
+            }
+        }
+        medication->AddExtension(medicationDetails);
+    }
+    medication->SetProfile("http://ehelse.no/fhir/StructureDefinition/sfm-Medication");
+    medication->SetStatus(FhirStatus::ACTIVE);
+    return CreateBundleEntryFromMedication(medication);
 }
 
 std::vector<FhirBundleEntry> CreatePrescriptionService::CreateFhirMedication(const std::shared_ptr<Medication> &medication) const {
@@ -608,6 +662,10 @@ std::vector<FhirBundleEntry> CreatePrescriptionService::CreateFhirMedication(con
         auto magistralMedication = std::dynamic_pointer_cast<MagistralMedication>(medication);
         if (magistralMedication) {
             return CreateFhirMedicationFromMagistral(magistralMedication);
+        }
+        auto packageMedication = std::dynamic_pointer_cast<PackageMedication>(medication);
+        if (packageMedication) {
+            return CreateFhirMedicationFromPackage(packageMedication);
         }
     }
     return {};
