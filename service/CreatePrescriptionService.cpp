@@ -671,6 +671,40 @@ CreatePrescriptionService::CreateFhirMedicationFromPackage(const std::shared_ptr
     return CreateBundleEntryFromMedication(medication);
 }
 
+std::vector<FhirBundleEntry> CreatePrescriptionService::CreateFhirMedicationFromBrandName(
+        const std::shared_ptr<BrandNameMedication> &brand) const {
+    auto medication = std::make_shared<FhirMedication>();
+    SetCommonFhirMedication(*medication, *brand);
+    {
+        std::vector<FhirCoding> codings{};
+        {
+            auto code = brand->GetCode();
+            auto value = code.getCode();
+            if (!value.empty()) {
+                auto display = code.getDisplay();
+                codings.emplace_back("http://ehelse.no/fhir/CodeSystem/FEST", value, display);
+                medication->SetName(display);
+            }
+        }
+        {
+            auto atc = brand->GetAtc();
+            if (!atc.empty()) {
+                codings.emplace_back("http://www.whocc.no/atc", atc, brand->GetAtcDisplay());
+            }
+        }
+        FhirCodeableConcept code{codings};
+        medication->SetCode(code);
+    }
+    {
+        auto medicationDetails = std::make_shared<FhirExtension>("http://ehelse.no/fhir/StructureDefinition/sfm-medicationdetails");
+        medicationDetails->AddExtension(std::make_shared<FhirValueExtension>("registreringstype", std::make_shared<FhirCodeableConceptValue>(FhirCodeableConcept("http://ehelse.no/fhir/CodeSystem/sfm-festregistrationtype", "2", "Legemiddelmerkevare"))));
+        medication->AddExtension(medicationDetails);
+    }
+    medication->SetProfile("http://ehelse.no/fhir/StructureDefinition/sfm-Medication");
+    medication->SetStatus(FhirStatus::ACTIVE);
+    return CreateBundleEntryFromMedication(medication);
+}
+
 std::vector<FhirBundleEntry> CreatePrescriptionService::CreateFhirMedication(const std::shared_ptr<Medication> &medication) const {
     {
         auto magistralMedication = std::dynamic_pointer_cast<MagistralMedication>(medication);
@@ -680,6 +714,10 @@ std::vector<FhirBundleEntry> CreatePrescriptionService::CreateFhirMedication(con
         auto packageMedication = std::dynamic_pointer_cast<PackageMedication>(medication);
         if (packageMedication) {
             return CreateFhirMedicationFromPackage(packageMedication);
+        }
+        auto brandNameMedication = std::dynamic_pointer_cast<BrandNameMedication>(medication);
+        if (brandNameMedication) {
+            return CreateFhirMedicationFromBrandName(brandNameMedication);
         }
     }
     return {};
@@ -845,11 +883,23 @@ FhirBundleEntry CreatePrescriptionService::CreateFhirMedicationStatement(const P
                 std::make_shared<FhirBooleanValue>(false)
         ));
         {
+            auto amount = prescription.GetAmount();
+            if (amount > 0.001) {
+                auto amountUnit = prescription.GetAmountUnit();
+                reseptAmendment->AddExtension(std::make_shared<FhirValueExtension>(
+                        "amount",
+                        std::make_shared<FhirQuantityValue>(FhirQuantity(amount, amountUnit))
+                ));
+            }
+        }
+        {
             auto value = prescription.GetNumberOfPackages();
-            reseptAmendment->AddExtension(std::make_shared<FhirValueExtension>(
-                    "numberofpackages",
-                    std::make_shared<FhirDecimalValue>(value)
-            ));
+            if (value > 0.001) {
+                reseptAmendment->AddExtension(std::make_shared<FhirValueExtension>(
+                        "numberofpackages",
+                        std::make_shared<FhirDecimalValue>(value)
+                ));
+            }
         }
         {
             auto value = prescription.GetReit();
