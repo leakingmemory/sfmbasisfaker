@@ -274,7 +274,15 @@ CreatePrescriptionService::CreateMedication(const FhirReference &medicationRefer
             }
             registreringstypeCode = registreringstypeCoding.GetCode();
         }
-        if (registreringstypeCode == "2") {
+        if (registreringstypeCode == "1") {
+            auto medicationObject = std::make_shared<GenericMedication>(festCode, festDisplay);
+            std::vector<std::shared_ptr<FhirValueExtension>> otherValueExtensions{};
+            std::vector<std::shared_ptr<FhirExtension>> otherExtensions{};
+            if (!SetCommonValues(*medicationObject, atc, atcDisplay, *medication, otherValueExtensions, otherExtensions)) {
+                return {};
+            }
+            return medicationObject;
+        } else if (registreringstypeCode == "2") {
             auto medicationObject = std::make_shared<BrandNameMedication>(festCode, festDisplay);
             std::vector<std::shared_ptr<FhirValueExtension>> otherValueExtensions{};
             std::vector<std::shared_ptr<FhirExtension>> otherExtensions{};
@@ -705,6 +713,40 @@ std::vector<FhirBundleEntry> CreatePrescriptionService::CreateFhirMedicationFrom
     return CreateBundleEntryFromMedication(medication);
 }
 
+std::vector<FhirBundleEntry> CreatePrescriptionService::CreateFhirMedicationFromGeneric(
+        const std::shared_ptr<GenericMedication> &generic) const {
+    auto medication = std::make_shared<FhirMedication>();
+    SetCommonFhirMedication(*medication, *generic);
+    {
+        std::vector<FhirCoding> codings{};
+        {
+            auto code = generic->GetCode();
+            auto value = code.getCode();
+            if (!value.empty()) {
+                auto display = code.getDisplay();
+                codings.emplace_back("http://ehelse.no/fhir/CodeSystem/FEST", value, display);
+                medication->SetName(display);
+            }
+        }
+        {
+            auto atc = generic->GetAtc();
+            if (!atc.empty()) {
+                codings.emplace_back("http://www.whocc.no/atc", atc, generic->GetAtcDisplay());
+            }
+        }
+        FhirCodeableConcept code{codings};
+        medication->SetCode(code);
+    }
+    {
+        auto medicationDetails = std::make_shared<FhirExtension>("http://ehelse.no/fhir/StructureDefinition/sfm-medicationdetails");
+        medicationDetails->AddExtension(std::make_shared<FhirValueExtension>("registreringstype", std::make_shared<FhirCodeableConceptValue>(FhirCodeableConcept("http://ehelse.no/fhir/CodeSystem/sfm-festregistrationtype", "2", "Legemiddelmerkevare"))));
+        medication->AddExtension(medicationDetails);
+    }
+    medication->SetProfile("http://ehelse.no/fhir/StructureDefinition/sfm-Medication");
+    medication->SetStatus(FhirStatus::ACTIVE);
+    return CreateBundleEntryFromMedication(medication);
+}
+
 std::vector<FhirBundleEntry> CreatePrescriptionService::CreateFhirMedication(const std::shared_ptr<Medication> &medication) const {
     {
         auto magistralMedication = std::dynamic_pointer_cast<MagistralMedication>(medication);
@@ -718,6 +760,10 @@ std::vector<FhirBundleEntry> CreatePrescriptionService::CreateFhirMedication(con
         auto brandNameMedication = std::dynamic_pointer_cast<BrandNameMedication>(medication);
         if (brandNameMedication) {
             return CreateFhirMedicationFromBrandName(brandNameMedication);
+        }
+        auto genericMedication = std::dynamic_pointer_cast<GenericMedication>(medication);
+        if (genericMedication) {
+            return CreateFhirMedicationFromGeneric(genericMedication);
         }
     }
     return {};

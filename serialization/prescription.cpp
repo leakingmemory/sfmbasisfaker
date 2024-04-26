@@ -42,6 +42,8 @@ std::shared_ptr<Medication> Medication::Parse(const web::json::value &json) {
             medication = std::make_shared<PackageMedication>(codeValue, code.getDisplay());
         } else if (systemValue == "BrandName") {
             medication = std::make_shared<BrandNameMedication>(codeValue, code.getDisplay());
+        } else if (systemValue == "Generic") {
+            medication = std::make_shared<GenericMedication>(codeValue, code.getDisplay());
         }
         if (medication) {
             medication->ParseInline(json);

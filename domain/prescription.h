@@ -146,6 +146,11 @@ public:
     BrandNameMedication(const std::string &id, const std::string &display) : Medication({id, display, "BrandName"}) {}
 };
 
+class GenericMedication : public Medication {
+public:
+    GenericMedication(const std::string &id, const std::string &display) : Medication({id, display, "Generic"}) {}
+};
+
 class Prescription {
 private:
     std::string id{};

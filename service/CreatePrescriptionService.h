@@ -30,6 +30,7 @@ private:
     [[nodiscard]] std::vector<FhirBundleEntry> CreateFhirMedicationFromMagistral(const std::shared_ptr<MagistralMedication> &medication) const;
     [[nodiscard]] std::vector<FhirBundleEntry> CreateFhirMedicationFromPackage(const std::shared_ptr<PackageMedication> &medication) const;
     [[nodiscard]] std::vector<FhirBundleEntry> CreateFhirMedicationFromBrandName(const std::shared_ptr<BrandNameMedication> &medication) const;
+    [[nodiscard]] std::vector<FhirBundleEntry> CreateFhirMedicationFromGeneric(const std::shared_ptr<GenericMedication> &generic) const;
 public:
     [[nodiscard]] std::vector<FhirBundleEntry> CreateFhirMedication(const std::shared_ptr<Medication> &medication) const;
     [[nodiscard]] FhirBundleEntry CreateFhirMedicationStatement(const Prescription &prescription, std::vector<FhirBundleEntry> &practitioners);
