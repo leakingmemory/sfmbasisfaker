@@ -467,6 +467,7 @@ FhirParameters MedicationController::SendMedication(const FhirBundle &bundle) {
         }
     }
     int prescriptionCount{0};
+    std::vector<std::vector<std::shared_ptr<FhirParameter>>> prescriptionOperationResult{};
     if (!patientId.empty()) {
         PrescriptionStorage prescriptionStorage{};
         auto list = prescriptionStorage.LoadPatientMap(patientId);
@@ -474,11 +475,18 @@ FhirParameters MedicationController::SendMedication(const FhirBundle &bundle) {
             auto id = prescriptionStorage.Store(patientId, prescription);
             list.emplace_back(id);
             ++prescriptionCount;
+            std::vector<std::shared_ptr<FhirParameter>> parameters{};
+            parameters.emplace_back(std::make_shared<FhirParameter>("reseptID", std::make_shared<FhirString>(prescription.GetId())));
+            parameters.emplace_back(std::make_shared<FhirParameter>("resultCode", std::make_shared<FhirCodingValue>("http://ehelse.no/fhir/CodeSystem/sfm-kj-rf-error-code", "0", "OK")));
+            prescriptionOperationResult.emplace_back(parameters);
         }
         prescriptionStorage.StorePatientMap(patientId, list);
     }
     FhirParameters parameters{};
     parameters.AddParameter("recallCount", std::make_shared<FhirIntegerValue>(0));
     parameters.AddParameter("prescriptionCount", std::make_shared<FhirIntegerValue>(prescriptionCount));
+    for (const auto &por : prescriptionOperationResult) {
+        parameters.AddParameter("prescriptionOperationResult", por);
+    }
     return parameters;
 }
