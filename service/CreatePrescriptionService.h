@@ -20,8 +20,8 @@ class FhirBundleEntry;
 class CreatePrescriptionService {
 private:
     [[nodiscard]] Person GetPerson(const FhirPerson &fhir) const;
-    [[nodiscard]] Person GetPerson(const FhirBundle &bundle, const std::string &fullUrl) const;
 public:
+    [[nodiscard]] Person GetPerson(const FhirBundle &bundle, const std::string &fullUrl) const;
     [[nodiscard]] std::shared_ptr<Medication> CreateMedication(const FhirReference &medicationReference, const FhirBundle &bundle) const;
     [[nodiscard]] Prescription CreatePrescription(const std::shared_ptr<FhirMedicationStatement> &medicationStatement, const FhirBundle &bundle) const;
 private:

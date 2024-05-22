@@ -9,6 +9,15 @@
 #include "../domain/prescription.h"
 #include <cpprest/json.h>
 
+class StoreFileException : public std::exception {
+public:
+    const char * what() const noexcept override;
+};
+
+const char *StoreFileException::what() const noexcept {
+    return "A file operation failed";
+}
+
 std::string PrescriptionStorage::Store(const std::string &patient, const Prescription &prescription) const {
     if (patient.empty()) {
         return {};
@@ -22,6 +31,27 @@ std::string PrescriptionStorage::Store(const std::string &patient, const Prescri
     }
     dir.WriteFile(clobId, prescription.Serialize());
     return clobId;
+}
+
+void PrescriptionStorage::Replace(const std::string &patient, const std::string &fileId,
+                                         const Prescription &prescription) const {
+    if (patient.empty()) {
+        throw StoreFileException();
+    }
+    auto dir = DataDirectory::Data("sfmbasisfaker").Sub("prescription").Sub(patient);
+    std::string clobId{};
+    {
+        std::stringstream str{};
+        str << fileId << "." << getpid();
+        clobId = str.str();
+    }
+    dir.WriteFile(clobId, prescription.Serialize());
+
+    auto from = dir.FileName(clobId);
+    auto dest = dir.FileName(fileId);
+    if (rename(from.c_str(), dest.c_str()) != 0) {
+        throw StoreFileException();
+    }
 }
 
 Prescription PrescriptionStorage::Load(const std::string &patient, const std::string &prescriptionId) const {

@@ -143,6 +143,7 @@ std::string Prescription::Serialize() const {
     obj["prescribedTimestamp"] = web::json::value::string(prescribedTimestamp);
     obj["patient"] = web::json::value::string(patient);
     obj["genericSubstitutionAccepted"] = web::json::value::boolean(genericSubstitutionAccepted);
+    obj["recallCode"] = recallCode.Serialize();
     return obj.serialize();
 }
 
@@ -208,6 +209,9 @@ Prescription Prescription::Parse(const std::string &json) {
     }
     if (obj.has_boolean_field("genericSubstitutionAccepted")) {
         prescription.genericSubstitutionAccepted = obj.at("genericSubstitutionAccepted").as_bool();
+    }
+    if (obj.has_object_field("recallCode")) {
+        prescription.recallCode = Code::Parse(obj.at("recallCode"));
     }
     return prescription;
 }

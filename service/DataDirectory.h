@@ -16,6 +16,7 @@ public:
     static DataDirectory Config(const std::string &appname);
     static DataDirectory Data(const std::string &appname);
     DataDirectory Sub(const std::string &name) const;
+    std::string FileName(const std::string &filename) const;
     std::string ReadFile(const std::string &filename) const;
     void WriteFile(const std::string &filename, const std::string &content) const;
 };

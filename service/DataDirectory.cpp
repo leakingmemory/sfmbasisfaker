@@ -40,12 +40,17 @@ DataDirectory DataDirectory::Sub(const std::string &name) const {
     return {path, name};
 }
 
-std::string DataDirectory::ReadFile(const std::string &filename) const {
+std::string DataDirectory::FileName(const std::string &filename) const {
     std::string fpath{path};
     if (!fpath.ends_with("/")) {
         fpath.append("/");
     }
     fpath.append(filename);
+    return fpath;
+}
+
+std::string DataDirectory::ReadFile(const std::string &filename) const {
+    std::string fpath = FileName(filename);
     if (!std::filesystem::exists(fpath)) {
         return {};
     }
@@ -65,11 +70,7 @@ std::string DataDirectory::ReadFile(const std::string &filename) const {
 }
 
 void DataDirectory::WriteFile(const std::string &filename, const std::string &content) const {
-    std::string fpath{path};
-    if (!fpath.ends_with("/")) {
-        fpath.append("/");
-    }
-    fpath.append(filename);
+    std::string fpath = FileName(filename);
     std::string tmpfilename{};
     {
         std::stringstream sstr{};

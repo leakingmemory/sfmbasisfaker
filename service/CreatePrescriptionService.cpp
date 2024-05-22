@@ -999,6 +999,14 @@ FhirBundleEntry CreatePrescriptionService::CreateFhirMedicationStatement(const P
                 ));
             }
         }
+        {
+            auto recallCode = prescription.GetRecallCode();
+            if (!recallCode.getCode().empty()) {
+                auto recallinfo = std::make_shared<FhirExtension>("recallinfo");
+                recallinfo->AddExtension(std::make_shared<FhirValueExtension>("recallcode", std::make_shared<FhirCodeableConceptValue>(FhirCodeableConcept(recallCode.getSystem(), recallCode.getCode(), recallCode.getDisplay()))));
+                reseptAmendment->AddExtension(recallinfo);
+            }
+        }
         medicationStatement->AddExtension(reseptAmendment);
     }
     {

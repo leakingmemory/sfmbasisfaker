@@ -172,6 +172,7 @@ private:
     std::string prescribedBy{};
     std::string prescribedTimestamp{};
     std::string patient{};
+    Code recallCode{};
     bool genericSubstitutionAccepted{false};
 public:
     [[nodiscard]] std::string GetId() const {
@@ -293,6 +294,12 @@ public:
     }
     void SetGenericSubstitutionAccepted(bool genericSubstitutionAccepted) {
         this->genericSubstitutionAccepted = genericSubstitutionAccepted;
+    }
+    [[nodiscard]] Code GetRecallCode() const {
+        return recallCode;
+    }
+    void SetRecallCode(const Code &recallCode) {
+        this->recallCode = recallCode;
     }
 
     std::string Serialize() const;

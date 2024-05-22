@@ -17,6 +17,7 @@
 #include "../service/PersonStorage.h"
 #include "../service/CreatePrescriptionService.h"
 #include "../service/PrescriptionStorage.h"
+#include <map>
 
 FhirParameters MedicationController::GetMedication(const std::string &selfUrl, const Person &practitioner, const FhirPerson &fhirPatient) {
     FhirBundleEntry practitionerEntry{};
@@ -360,8 +361,10 @@ FhirParameters MedicationController::GetMedication(const std::string &selfUrl, c
 FhirParameters MedicationController::SendMedication(const FhirBundle &bundle) {
     std::string patientId{};
     std::vector<Prescription> prescriptions{};
+    std::map<std::string,Code> potentialRecalls{};
     {
         std::vector<std::shared_ptr<FhirMedicationStatement>> medicationStatements{};
+        std::map<std::string,std::tuple<Code,std::shared_ptr<FhirMedicationStatement>>> potentialRecallsWithStatements{};
         {
             std::shared_ptr<FhirComposition> composition{};
             for (const auto &entry: bundle.GetEntries()) {
@@ -426,16 +429,44 @@ FhirParameters MedicationController::SendMedication(const FhirBundle &bundle) {
             while (medicationStatementIterator != medicationStatements.end()) {
                 auto medicationStatement = *medicationStatementIterator;
                 bool createeresept{false};
+                std::string prescriptionId{};
+                for (const auto &identifier : medicationStatement->GetIdentifiers()) {
+                    if (identifier.GetType().GetText() == "ReseptId") {
+                        prescriptionId = identifier.GetValue();
+                    }
+                }
                 for (const auto &extension: medicationStatement->GetExtensions()) {
                     if (extension->GetUrl() == "http://ehelse.no/fhir/StructureDefinition/sfm-reseptamendment") {
                         for (const auto &subExtension: extension->GetExtensions()) {
-                            if (subExtension->GetUrl() == "createeresept") {
+                            auto url = subExtension->GetUrl();
+                            if (url == "createeresept") {
                                 auto valueExtension = std::dynamic_pointer_cast<FhirValueExtension>(subExtension);
                                 if (valueExtension) {
                                     auto value = std::dynamic_pointer_cast<FhirBooleanValue>(
                                             valueExtension->GetValue());
                                     if (value) {
                                         createeresept = value->IsTrue();
+                                    }
+                                }
+                            } else if (url == "recallinfo" && !prescriptionId.empty()) {
+                                auto extensions = subExtension->GetExtensions();
+                                for (const auto &extension : extensions) {
+                                    if (extension->GetUrl() == "recallcode") {
+                                        auto valueExtension = std::dynamic_pointer_cast<FhirValueExtension>(extension);
+                                        if (valueExtension) {
+                                            auto value = std::dynamic_pointer_cast<FhirCodeableConceptValue>(valueExtension->GetValue());
+                                            if (value) {
+                                                auto coding = value->GetCoding();
+                                                if (!coding.empty()) {
+                                                    std::string codeValue{coding[0].GetCode()};
+                                                    if (!codeValue.empty()) {
+                                                        std::tuple<Code,std::shared_ptr<FhirMedicationStatement>> codeTuple =
+                                                                {{codeValue, coding[0].GetDisplay(), coding[0].GetSystem()}, medicationStatement};
+                                                        potentialRecallsWithStatements.insert_or_assign(prescriptionId, codeTuple);
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -455,6 +486,14 @@ FhirParameters MedicationController::SendMedication(const FhirBundle &bundle) {
             patientId = prescription.GetPatient();
             prescriptions.emplace_back(prescription);
         }
+        for (const auto &recallTuple : potentialRecallsWithStatements) {
+            auto prescriptionId = recallTuple.first;
+            auto code = std::get<0>(recallTuple.second);
+            auto medicationStatement = std::get<1>(recallTuple.second);
+            auto person = createPrescriptionService.GetPerson(bundle, medicationStatement->GetSubject().GetReference());
+            patientId = person.GetId();
+            potentialRecalls.insert_or_assign(prescriptionId, code);
+        }
         if (!prescriptions.empty() && patientId.empty()) {
             // TODO
             return {};
@@ -467,10 +506,32 @@ FhirParameters MedicationController::SendMedication(const FhirBundle &bundle) {
         }
     }
     int prescriptionCount{0};
+    int recallCount{0};
     std::vector<std::vector<std::shared_ptr<FhirParameter>>> prescriptionOperationResult{};
     if (!patientId.empty()) {
         PrescriptionStorage prescriptionStorage{};
         auto list = prescriptionStorage.LoadPatientMap(patientId);
+        for (const auto &fileId : list) {
+            auto prescription = prescriptionStorage.Load(patientId, fileId);
+            auto prescriptionId = prescription.GetId();
+            auto iterator = potentialRecalls.begin();
+            while (iterator != potentialRecalls.end()) {
+                auto &potentialRecall = *iterator;
+                if (potentialRecall.first == prescriptionId) {
+                    prescription.SetRecallCode(potentialRecall.second);
+                    prescriptionStorage.Replace(patientId, fileId, prescription);
+                    std::vector<std::shared_ptr<FhirParameter>> parameters{};
+                    parameters.emplace_back(std::make_shared<FhirParameter>("reseptID", std::make_shared<FhirString>(prescription.GetId())));
+                    parameters.emplace_back(std::make_shared<FhirParameter>("resultCode", std::make_shared<FhirCodingValue>("http://ehelse.no/fhir/CodeSystem/sfm-kj-rf-error-code", "1", "Tilbakekalt")));
+                    prescriptionOperationResult.emplace_back(parameters);
+                    iterator = potentialRecalls.erase(iterator);
+                    ++recallCount;
+                    break;
+                } else {
+                    ++iterator;
+                }
+            }
+        }
         for (const auto &prescription : prescriptions) {
             auto id = prescriptionStorage.Store(patientId, prescription);
             list.emplace_back(id);
@@ -483,7 +544,7 @@ FhirParameters MedicationController::SendMedication(const FhirBundle &bundle) {
         prescriptionStorage.StorePatientMap(patientId, list);
     }
     FhirParameters parameters{};
-    parameters.AddParameter("recallCount", std::make_shared<FhirIntegerValue>(0));
+    parameters.AddParameter("recallCount", std::make_shared<FhirIntegerValue>(recallCount));
     parameters.AddParameter("prescriptionCount", std::make_shared<FhirIntegerValue>(prescriptionCount));
     for (const auto &por : prescriptionOperationResult) {
         parameters.AddParameter("prescriptionOperationResult", por);
