@@ -448,10 +448,16 @@ FhirParameters MedicationController::SendMedication(const FhirBundle &bundle) {
                                         createeresept = value->IsTrue();
                                     }
                                 }
-                            } else if (url == "recallinfo" && !prescriptionId.empty()) {
+                            } else if (url == "recallinfo") {
+                                std::string recallId{};
+                                std::string recallCode{};
+                                std::string recallDisplay{};
+                                std::string recallSystem{};
                                 auto extensions = subExtension->GetExtensions();
                                 for (const auto &extension : extensions) {
-                                    if (extension->GetUrl() == "recallcode") {
+                                    std::string url = extension->GetUrl();
+                                    std::transform(url.cbegin(), url.cend(), url.begin(), [] (char ch) { return std::tolower(ch); });
+                                    if (url == "recallcode") {
                                         auto valueExtension = std::dynamic_pointer_cast<FhirValueExtension>(extension);
                                         if (valueExtension) {
                                             auto value = std::dynamic_pointer_cast<FhirCodeableConceptValue>(valueExtension->GetValue());
@@ -460,14 +466,33 @@ FhirParameters MedicationController::SendMedication(const FhirBundle &bundle) {
                                                 if (!coding.empty()) {
                                                     std::string codeValue{coding[0].GetCode()};
                                                     if (!codeValue.empty()) {
-                                                        std::tuple<Code,std::shared_ptr<FhirMedicationStatement>> codeTuple =
-                                                                {{codeValue, coding[0].GetDisplay(), coding[0].GetSystem()}, medicationStatement};
-                                                        potentialRecallsWithStatements.insert_or_assign(prescriptionId, codeTuple);
+                                                        recallCode = codeValue;
+                                                        recallDisplay = coding[0].GetDisplay();
+                                                        recallSystem = coding[0].GetSystem();
                                                     }
                                                 }
                                             }
                                         }
+                                    } else if (url == "recallid") {
+                                        auto valueExtension = std::dynamic_pointer_cast<FhirValueExtension>(extension);
+                                        if (valueExtension) {
+                                            auto value = std::dynamic_pointer_cast<FhirString>(valueExtension->GetValue());
+                                            if (value) {
+                                                std::string str{value->GetValue()};
+                                                if (!str.empty()) {
+                                                    recallId = str;
+                                                }
+                                            }
+                                        }
                                     }
+                                }
+                                if (recallId.empty()) {
+                                    recallId = prescriptionId;
+                                }
+                                if (!recallCode.empty() && !recallId.empty()) {
+                                    std::tuple<Code,std::shared_ptr<FhirMedicationStatement>> codeTuple =
+                                            {{recallCode, recallDisplay, recallSystem}, medicationStatement};
+                                    potentialRecallsWithStatements.insert_or_assign(recallId, codeTuple);
                                 }
                             }
                         }
