@@ -257,7 +257,7 @@ int main() {
                     auto outputParameters = medicationController->SendMedication(*bundle);
                     web::http::http_response response(web::http::status_codes::OK);
                     {
-                        auto json = outputParameters.ToJson();
+                        auto json = outputParameters->ToJson();
                         auto jsonString = json.serialize();
                         response.set_body(jsonString, "application/fhir+json; charset=utf-8");
                     }

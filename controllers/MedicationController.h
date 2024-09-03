@@ -14,7 +14,7 @@ class Person;
 class MedicationController {
 public:
     [[nodiscard]] FhirParameters GetMedication(const std::string &selfUrl, const Person &practitioner, const FhirPerson &patient);
-    [[nodiscard]] FhirParameters SendMedication(const FhirBundle &bundle);
+    [[nodiscard]] std::shared_ptr<Fhir> SendMedication(const FhirBundle &bundle);
 };
 
 #endif //SFMBASISFAKER_MEDICATIONCONTROLLER_H

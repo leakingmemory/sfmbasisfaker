@@ -11,12 +11,16 @@
 #include <sfmbasisapi/nhnfhir/KjRfErrorCode.h>
 #include <sfmbasisapi/fhir/composition.h>
 #include <sfmbasisapi/fhir/medstatement.h>
+#include <sfmbasisapi/fhir/fhirbasic.h>
+#include <sfmbasisapi/fhir/operationoutcome.h>
 #include <sfmbasisapi/IsoDateTime.h>
 #include "../domain/person.h"
 #include "../domain/prescription.h"
 #include "../service/PersonStorage.h"
 #include "../service/CreatePrescriptionService.h"
 #include "../service/PrescriptionStorage.h"
+#include "../service/PllStorage.h"
+#include "../service/DateTime.h"
 #include <map>
 
 FhirParameters MedicationController::GetMedication(const std::string &selfUrl, const Person &practitioner, const FhirPerson &fhirPatient) {
@@ -273,6 +277,49 @@ FhirParameters MedicationController::GetMedication(const std::string &selfUrl, c
     } else {
         medicationSection.SetEntries(medicationSectionEntries);
     }
+    std::shared_ptr<FhirBundleEntry> m251Entry{};
+    {
+        PllStorage pllStorage{};
+        auto pll = pllStorage.Load(patient.GetId());
+        if (pll.IsValid()) {
+            m251Entry = std::make_shared<FhirBundleEntry>();
+            std::string url{"urn:uuid:"};
+            {
+                boost::uuids::uuid uuid = boost::uuids::random_generator()();
+                std::string uuid_string = to_string(uuid);
+                url.append(uuid_string);
+            }
+            *m251Entry = FhirBundleEntry::Create<FhirBasic>(url);
+            auto m251 = std::dynamic_pointer_cast<FhirBasic>(m251Entry->GetResource());
+            m251->SetCode(FhirCodeableConcept("http://ehelse.no/fhir/CodeSystem/sfm-message-type", "M25.1", "PLL"));
+            {
+                boost::uuids::uuid uuid = boost::uuids::random_generator()();
+                std::string uuid_string = to_string(uuid);
+                m251->SetId(uuid_string);
+            }
+            std::vector<FhirIdentifier> identifiers{};
+            identifiers.emplace_back("usual", pll.GetId());
+            m251->SetIdentifiers(identifiers);
+            m251->SetProfile("http://ehelse.no/fhir/StructureDefinition/sfm-PLL-info");
+            m251->SetSubject(patientEntry.CreateReference("http://ehelse.no/fhir/StructureDefinition/sfm-Patient"));
+        }
+    }
+    FhirCompositionSection pllInfoSection{};
+    pllInfoSection.SetTitle("PllInfo");
+    pllInfoSection.SetCode(FhirCodeableConcept("http://ehelse.no/fhir/CodeSystem/sfm-section-types", "sectionPLLinfo", "PLL Info"));
+    std::vector<FhirReference> pllEntries{};
+    if (m251Entry) {
+        pllEntries.emplace_back(m251Entry->CreateReference("http://ehelse.no/fhir/StructureDefinition/sfm-PLL-info"));
+    }
+    if (!pllEntries.empty()) {
+        pllInfoSection.SetEntries(pllEntries);
+    } else {
+        pllInfoSection.SetEmptyReason(
+                FhirCodeableConcept("http://terminology.hl7.org/CodeSystem/list-empty-reason", "unavailable",
+                                    "Unavailable"));
+        pllInfoSection.SetTextXhtml("<xhtml:div xmlns:xhtml=\"http://www.w3.org/1999/xhtml\"></xhtml:div>");
+    }
+    pllInfoSection.SetTextStatus("generated");
     FhirCompositionSection allergiesSection{};
     allergiesSection.SetTitle("Allergies");
     allergiesSection.SetCode(FhirCodeableConcept("http://ehelse.no/fhir/CodeSystem/sfm-section-types", "sectionAllergies", "Section allergies"));
@@ -317,6 +364,7 @@ FhirParameters MedicationController::GetMedication(const std::string &selfUrl, c
         resource.SetTitle("Medication summary");
         resource.SetConfidentiality("N");
         resource.AddSection(medicationSection);
+        resource.AddSection(pllInfoSection);
         resource.AddSection(allergiesSection);
         resource.AddSection(otherPrescriptionsSection);
     }
@@ -345,6 +393,9 @@ FhirParameters MedicationController::GetMedication(const std::string &selfUrl, c
     for (const auto &entry : medicationStatementEntries) {
         bundle->AddEntry(entry);
     }
+    if (m251Entry) {
+        bundle->AddEntry(*m251Entry);
+    }
     FhirParameters parameters{};
     parameters.AddParameter("medication", bundle);
     parameters.AddParameter("KJHentetTidspunkt", std::make_shared<FhirDateTimeValue>("2023-12-06T14:13:03.7904472+01:00"));
@@ -358,52 +409,147 @@ FhirParameters MedicationController::GetMedication(const std::string &selfUrl, c
     return parameters;
 }
 
-FhirParameters MedicationController::SendMedication(const FhirBundle &bundle) {
+FhirIssue CreateIssue(std::string code, std::string diagnostics, std::string severity) {
+    FhirIssue issue{};
+    issue.SetCode(code);
+    issue.SetDiagnostics(diagnostics);
+    issue.SetSeverity(severity);
+    return issue;
+}
+
+std::vector<FhirIssue> CreateIssues(const FhirIssue &issue) {
+    std::vector<FhirIssue> issues{};
+    issues.emplace_back(issue);
+    return issues;
+}
+
+static std::shared_ptr<FhirOperationOutcome> CreateOperationOutcome(const std::vector<FhirIssue> &issues) {
+    auto op = std::make_shared<FhirOperationOutcome>();
+    op->SetIssue(issues);
+    return op;
+}
+
+std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bundle) {
+    bool createPll{false};
     std::string patientId{};
     std::vector<Prescription> prescriptions{};
     std::map<std::string,Code> potentialRecalls{};
     {
         std::vector<std::shared_ptr<FhirMedicationStatement>> medicationStatements{};
+        std::map<std::string,std::shared_ptr<FhirBasic>> fhirBasics{};
         std::map<std::string,std::tuple<Code,std::shared_ptr<FhirMedicationStatement>>> potentialRecallsWithStatements{};
+        CreatePrescriptionService createPrescriptionService{};
         {
             std::shared_ptr<FhirComposition> composition{};
             for (const auto &entry: bundle.GetEntries()) {
                 auto compositionResource = std::dynamic_pointer_cast<FhirComposition>(entry.GetResource());
                 if (compositionResource) {
                     if (composition) {
-                        // TODO
-                        return {};
+                        return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Multiple composition entries", "Fatal")));
                     }
                     composition = compositionResource;
+                    continue;
+                }
+                auto basic = std::dynamic_pointer_cast<FhirBasic>(entry.GetResource());
+                if (basic) {
+                    fhirBasics.insert_or_assign(entry.GetFullUrl(), basic);
                 }
             }
             if (!composition) {
-                // TODO
-                return {};
+                return CreateOperationOutcome(CreateIssues(CreateIssue("X", "No composition entries", "Fatal")));
             }
             FhirCompositionSection medicationSection{};
+            FhirCompositionSection pllSection{};
             {
-                bool found{false};
+                bool foundMedication{false};
+                bool foundPll{false};
                 for (const auto &section: composition->GetSections()) {
                     bool isMedication{false};
+                    bool isPllInfo{false};
                     for (const auto &coding: section.GetCode().GetCoding()) {
-                        if (coding.GetCode() == "sectionMedication") {
+                        auto code = coding.GetCode();
+                        std::transform(code.cbegin(), code.cend(), code.begin(), [] (char ch) { return std::tolower(ch); });
+                        if (code == "sectionmedication") {
                             isMedication = true;
+                            break;
+                        }
+                        if (code == "sectionpllinfo") {
+                            isPllInfo = true;
                             break;
                         }
                     }
                     if (isMedication) {
-                        if (found) {
-                            // TODO
-                            return {};
+                        if (isPllInfo) {
+                            return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Ambiguous section (med & pll)", "Fatal")));
+                        }
+                        if (foundMedication) {
+                            return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Multiple medication sections", "Fatal")));
                         }
                         medicationSection = section;
-                        found = true;
+                        foundMedication = true;
+                    }
+                    if (isPllInfo) {
+                        if (foundPll) {
+                            return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Multiple PLL info sections", "Fatal")));
+                        }
+                        pllSection = section;
+                        foundPll = true;
                     }
                 }
-                if (!found) {
-                    // TODO
-                    return {};
+                if (!foundMedication) {
+                    return CreateOperationOutcome(CreateIssues(CreateIssue("X", "No medication section", "Fatal")));
+                }
+                if (!foundPll) {
+                    return CreateOperationOutcome(CreateIssues(CreateIssue("X", "No PLL info section", "Fatal")));
+                }
+            }
+            std::shared_ptr<FhirBasic> m251{};
+            for (const auto &m25ref : pllSection.GetEntries()) {
+                auto display = m25ref.GetDisplay();
+                std::transform(display.cbegin(), display.cend(), display.begin(), [] (char ch) { return std::tolower(ch); });
+                if (display == "m25.1") {
+                    auto m251Iterator = fhirBasics.find(m25ref.GetReference());
+                    if (m251Iterator != fhirBasics.end()) {
+                        m251 = m251Iterator->second;
+                    }
+                }
+            }
+            if (!m251 && !pllSection.GetEntries().empty()) {
+                auto m251Iterator = fhirBasics.find(pllSection.GetEntries()[0].GetReference());
+                if (m251Iterator != fhirBasics.end()) {
+                    m251 = m251Iterator->second;
+                }
+            }
+            if (m251) {
+                auto person = createPrescriptionService.GetPerson(bundle, m251->GetSubject().GetReference());
+                {
+                    auto personId = person.GetId();
+                    if (!personId.empty()) {
+                        if (patientId.empty()) {
+                            patientId = personId;
+                        } else if (patientId != personId) {
+                            return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Different patient", "Fatal")));
+                        }
+                    }
+                }
+                auto m251exts = m251->GetExtensions();
+                for (const auto &m251ext : m251exts) {
+                    auto url = m251ext->GetUrl();
+                    std::transform(url.cbegin(), url.cend(), url.begin(), [] (char ch) {return std::tolower(ch);});
+                    if (url == "http://ehelse.no/fhir/structuredefinition/sfm-pllinformation") {
+                        auto pllInfoExts = m251ext->GetExtensions();
+                        for (const auto &pllInfoExt : pllInfoExts) {
+                            auto url = pllInfoExt->GetUrl();
+                            std::transform(url.cbegin(), url.cend(), url.begin(), [] (char ch) {return std::tolower(ch);});
+                            if (url == "createpll") {
+                                auto createPllExt = std::dynamic_pointer_cast<FhirValueExtension>(pllInfoExt);
+                                if (createPllExt) {
+                                    auto value = std::dynamic_pointer_cast<FhirBooleanValue>(createPllExt->GetValue());
+                                    createPll = value && value->IsTrue();
+                                }
+                            }
+                        }
+                    }
                 }
             }
             {
@@ -505,7 +651,6 @@ FhirParameters MedicationController::SendMedication(const FhirBundle &bundle) {
                 }
             }
         }
-        CreatePrescriptionService createPrescriptionService{};
         for (const auto &medicationStatement : medicationStatements) {
             Prescription prescription = createPrescriptionService.CreatePrescription(medicationStatement, bundle);
             patientId = prescription.GetPatient();
@@ -520,18 +665,17 @@ FhirParameters MedicationController::SendMedication(const FhirBundle &bundle) {
             potentialRecalls.insert_or_assign(prescriptionId, code);
         }
         if (!prescriptions.empty() && patientId.empty()) {
-            // TODO
-            return {};
+            return CreateOperationOutcome(CreateIssues(CreateIssue("X", "No patient", "Fatal")));
         }
         for (const auto &prescription : prescriptions) {
             if (prescription.GetPatient() != patientId) {
-                // TODO
-                return {};
+                return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Different patient", "Fatal")));
             }
         }
     }
     int prescriptionCount{0};
     int recallCount{0};
+    Pll pll{};
     std::vector<std::vector<std::shared_ptr<FhirParameter>>> prescriptionOperationResult{};
     if (!patientId.empty()) {
         PrescriptionStorage prescriptionStorage{};
@@ -567,12 +711,31 @@ FhirParameters MedicationController::SendMedication(const FhirBundle &bundle) {
             prescriptionOperationResult.emplace_back(parameters);
         }
         prescriptionStorage.StorePatientMap(patientId, list);
+        if (createPll) {
+            PllStorage pllStorage{};
+            {
+                boost::uuids::uuid uuid = boost::uuids::random_generator()();
+                std::string uuid_string = to_string(uuid);
+                pll.SetId(uuid_string);
+            }
+            {
+                auto now = DateTimeOffset::Now();
+                pll.SetDateTime(now.to_iso8601());
+            }
+            pllStorage.Store(patientId, pll);
+        }
     }
-    FhirParameters parameters{};
-    parameters.AddParameter("recallCount", std::make_shared<FhirIntegerValue>(recallCount));
-    parameters.AddParameter("prescriptionCount", std::make_shared<FhirIntegerValue>(prescriptionCount));
+    auto parameters = std::make_shared<FhirParameters>();
+    parameters->AddParameter("recallCount", std::make_shared<FhirIntegerValue>(recallCount));
+    parameters->AddParameter("prescriptionCount", std::make_shared<FhirIntegerValue>(prescriptionCount));
     for (const auto &por : prescriptionOperationResult) {
-        parameters.AddParameter("prescriptionOperationResult", por);
+        parameters->AddParameter("prescriptionOperationResult", por);
+    }
+    if (pll.IsValid()) {
+        std::vector<std::shared_ptr<FhirParameter>> part{};
+        part.emplace_back(std::make_shared<FhirParameter>("PllmessageID", std::make_shared<FhirString>(pll.GetId())));
+        part.emplace_back(std::make_shared<FhirParameter>("resultCode", std::make_shared<FhirCodingValue>("http://ehelse.no/fhir/CodeSystem/sfm-kj-rf-error-code", "0", "OK")));
+        parameters->AddParameter("PllResult", part);
     }
     return parameters;
 }
