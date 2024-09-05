@@ -405,8 +405,11 @@ CreatePrescriptionService::CreatePrescription(const std::shared_ptr<FhirMedicati
             continue;
         }
         auto typeText = typeCodeable.GetText();
-        if (typeText == "ReseptId") {
+        std::transform(typeText.cbegin(), typeText.cend(), typeText.begin(), [] (char ch) { return std::tolower(ch); });
+        if (typeText == "reseptid") {
             prescription.SetId(identifier.GetValue());
+        } else if (typeText == "pll") {
+            prescription.SetPllId(identifier.GetValue());
         }
     }
     {
@@ -867,6 +870,14 @@ FhirBundleEntry CreatePrescriptionService::CreateFhirMedicationStatement(const P
         boost::uuids::uuid randomUUID = generator();
         auto id = boost::uuids::to_string(randomUUID);
         medicationStatement->SetId(id);
+    }
+    {
+        auto pllId = prescription.GetPllId();
+        if (!pllId.empty()) {
+            FhirCodeableConcept type{"PLL"};
+            FhirIdentifier identifier{type, "usual", pllId};
+            medicationStatement->AddIdentifier(identifier);
+        }
     }
     {
         FhirCodeableConcept type{"ReseptId"};

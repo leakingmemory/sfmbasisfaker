@@ -122,6 +122,9 @@ void PackageMedication::ParseInline(const web::json::value &json) {
 std::string Prescription::Serialize() const {
     auto obj = web::json::value::object();
     obj["id"] = web::json::value::string(id);
+    if (!pllId.empty()) {
+        obj["pllId"] = web::json::value::string(pllId);
+    }
     if (medication) {
         obj["medication"] = medication->Serialize();
     }
@@ -141,6 +144,12 @@ std::string Prescription::Serialize() const {
     obj["typeOfPrescription"] = typeOfPrescription.Serialize();
     obj["prescribedBy"] = web::json::value::string(prescribedBy);
     obj["prescribedTimestamp"] = web::json::value::string(prescribedTimestamp);
+    if (!pllId.empty() && !treatmentStartedBy.empty()) {
+        obj["treatmentStartedBy"] = web::json::value::string(treatmentStartedBy);
+    }
+    if (!pllId.empty() && !treatmentStartedTimestamp.empty()) {
+        obj["treatmentStartedTimestamp"] = web::json::value::string(treatmentStartedTimestamp);
+    }
     obj["patient"] = web::json::value::string(patient);
     obj["genericSubstitutionAccepted"] = web::json::value::boolean(genericSubstitutionAccepted);
     obj["recallCode"] = recallCode.Serialize();
@@ -152,6 +161,9 @@ Prescription Prescription::Parse(const std::string &json) {
     auto obj = web::json::value::parse(json);
     if (obj.has_string_field("id")) {
         prescription.id = obj.at("id").as_string();
+    }
+    if (obj.has_string_field("pllId")) {
+        prescription.pllId = obj.at("pllId").as_string();
     }
     if (obj.has_object_field("medication")) {
         prescription.medication = Medication::Parse(obj.at("medication"));
@@ -203,6 +215,12 @@ Prescription Prescription::Parse(const std::string &json) {
     }
     if (obj.has_string_field("prescribedTimestamp")) {
         prescription.prescribedTimestamp = obj.at("prescribedTimestamp").as_string();
+    }
+    if (obj.has_string_field("treatmentStartedBy")) {
+        prescription.treatmentStartedBy = obj.at("treatmentStartedBy").as_string();
+    }
+    if (obj.has_string_field("treatmentStartedTimestamp")) {
+        prescription.treatmentStartedTimestamp = obj.at("treatmentStartedTimestamp").as_string();
     }
     if (obj.has_string_field("patient")) {
         prescription.patient = obj.at("patient").as_string();

@@ -154,6 +154,7 @@ public:
 class Prescription {
 private:
     std::string id{};
+    std::string pllId{};
     std::shared_ptr<Medication> medication{};
     Code use{};
     std::string applicationArea{};
@@ -171,6 +172,8 @@ private:
     Code typeOfPrescription{};
     std::string prescribedBy{};
     std::string prescribedTimestamp{};
+    std::string treatmentStartedBy{};
+    std::string treatmentStartedTimestamp{};
     std::string patient{};
     Code recallCode{};
     bool genericSubstitutionAccepted{false};
@@ -180,6 +183,12 @@ public:
     }
     void SetId(const std::string &id) {
         this->id = id;
+    }
+    [[nodiscard]] std::string GetPllId() const {
+        return pllId;
+    }
+    void SetPllId(const std::string &pllId) {
+        this->pllId = pllId;
     }
     [[nodiscard]] std::shared_ptr<Medication> GetMedication() const {
         return medication;
@@ -281,6 +290,18 @@ public:
         return prescribedTimestamp;
     }
     void SetPrescribedTimestamp(const std::string &prescribedTimestamp) {
+        this->prescribedTimestamp = prescribedTimestamp;
+    }
+    [[nodiscard]] std::string GetTreatmentStartedBy() const {
+        return prescribedBy;
+    }
+    void SetTreatmentStartedBy(const std::string &prescribedBy) {
+        this->prescribedBy = prescribedBy;
+    }
+    [[nodiscard]] std::string GetTreatmentStartedTimestamp() const {
+        return prescribedTimestamp;
+    }
+    void SetTreatmentStartedTimestamp(const std::string &prescribedTimestamp) {
         this->prescribedTimestamp = prescribedTimestamp;
     }
     [[nodiscard]] std::string GetPatient() const {

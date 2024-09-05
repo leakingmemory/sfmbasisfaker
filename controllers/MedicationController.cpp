@@ -432,6 +432,8 @@ static std::shared_ptr<FhirOperationOutcome> CreateOperationOutcome(const std::v
 std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bundle) {
     bool createPll{false};
     std::string patientId{};
+    std::vector<std::string> ePrescriptionIds{};
+    std::vector<std::string> injectedPllIds{};
     std::vector<Prescription> prescriptions{};
     std::map<std::string,Code> potentialRecalls{};
     {
@@ -570,15 +572,19 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
                     }
                 }
             }
-            std::vector<Prescription> prescriptions{};
             auto medicationStatementIterator = medicationStatements.begin();
             while (medicationStatementIterator != medicationStatements.end()) {
                 auto medicationStatement = *medicationStatementIterator;
                 bool createeresept{false};
                 std::string prescriptionId{};
+                std::string pllId{};
                 for (const auto &identifier : medicationStatement->GetIdentifiers()) {
-                    if (identifier.GetType().GetText() == "ReseptId") {
+                    auto type = identifier.GetType().GetText();
+                    std::transform(type.cbegin(), type.cend(), type.begin(), [] (char ch) { return std::tolower(ch); });
+                    if (type == "reseptid") {
                         prescriptionId = identifier.GetValue();
+                    } else if (type == "pllid") {
+                        pllId = identifier.GetValue();
                     }
                 }
                 for (const auto &extension: medicationStatement->GetExtensions()) {
@@ -647,12 +653,23 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
                 if (createeresept) {
                     ++medicationStatementIterator;
                 } else {
+                    if (!prescriptionId.empty()) {
+                        if (pllId.empty()) {
+                            ePrescriptionIds.emplace_back(prescriptionId);
+                        }
+                    }
                     medicationStatementIterator = medicationStatements.erase(medicationStatementIterator);
                 }
             }
         }
         for (const auto &medicationStatement : medicationStatements) {
             Prescription prescription = createPrescriptionService.CreatePrescription(medicationStatement, bundle);
+            {
+                auto pllId = prescription.GetPllId();
+                if (!pllId.empty()) {
+                    injectedPllIds.emplace_back(pllId);
+                }
+            }
             patientId = prescription.GetPatient();
             prescriptions.emplace_back(prescription);
         }
@@ -680,17 +697,47 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
     if (!patientId.empty()) {
         PrescriptionStorage prescriptionStorage{};
         auto list = prescriptionStorage.LoadPatientMap(patientId);
+        std::map<std::string,std::shared_ptr<Prescription>> filePrescriptionMap{};
         for (const auto &fileId : list) {
-            auto prescription = prescriptionStorage.Load(patientId, fileId);
-            auto prescriptionId = prescription.GetId();
+            auto prescription = std::make_shared<Prescription>(prescriptionStorage.Load(patientId, fileId));
+            filePrescriptionMap.insert_or_assign(fileId, prescription);
+            auto pllId = prescription->GetPllId();
+            auto prescriptionId = prescription->GetId();
+            if (createPll && !prescriptionId.empty() && !pllId.empty() &&
+                std::find(ePrescriptionIds.cbegin(), ePrescriptionIds.cend(), prescriptionId) != ePrescriptionIds.cend() &&
+                std::find(injectedPllIds.cbegin(), injectedPllIds.cend(), pllId) != injectedPllIds.cend()) {
+                return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Existing and kept PLL ID reused on a new prescription", "Fatal")));
+            }
+        }
+        if (createPll) {
+            for (const auto &filePrescriptionMapping: filePrescriptionMap) {
+                auto fileId = filePrescriptionMapping.first;
+                auto prescription = filePrescriptionMapping.second;
+                auto pllId = prescription->GetPllId();
+                if (!pllId.empty() && std::find(injectedPllIds.cbegin(), injectedPllIds.cend(), pllId) != injectedPllIds.cend()) {
+                    prescription->SetPllId("");
+                    prescriptionStorage.Replace(patientId, fileId, *prescription);
+                }
+            }
+        }
+        for (const auto &filePrescriptionMapping : filePrescriptionMap) {
+            auto fileId = filePrescriptionMapping.first;
+            auto prescription = filePrescriptionMapping.second;
+            auto prescriptionId = prescription->GetId();
+            if (createPll && prescription->GetPllId().empty() && std::find(ePrescriptionIds.cbegin(), ePrescriptionIds.cend(), prescriptionId) != ePrescriptionIds.cend()) {
+                boost::uuids::uuid uuid = boost::uuids::random_generator()();
+                std::string uuid_string = to_string(uuid);
+                prescription->SetPllId(uuid_string);
+                prescriptionStorage.Replace(patientId, fileId, *prescription);
+            }
             auto iterator = potentialRecalls.begin();
             while (iterator != potentialRecalls.end()) {
                 auto &potentialRecall = *iterator;
                 if (potentialRecall.first == prescriptionId) {
-                    prescription.SetRecallCode(potentialRecall.second);
-                    prescriptionStorage.Replace(patientId, fileId, prescription);
+                    prescription->SetRecallCode(potentialRecall.second);
+                    prescriptionStorage.Replace(patientId, fileId, *prescription);
                     std::vector<std::shared_ptr<FhirParameter>> parameters{};
-                    parameters.emplace_back(std::make_shared<FhirParameter>("reseptID", std::make_shared<FhirString>(prescription.GetId())));
+                    parameters.emplace_back(std::make_shared<FhirParameter>("reseptID", std::make_shared<FhirString>(prescription->GetId())));
                     parameters.emplace_back(std::make_shared<FhirParameter>("resultCode", std::make_shared<FhirCodingValue>("http://ehelse.no/fhir/CodeSystem/sfm-kj-rf-error-code", "1", "Tilbakekalt")));
                     prescriptionOperationResult.emplace_back(parameters);
                     iterator = potentialRecalls.erase(iterator);
@@ -701,7 +748,16 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
                 }
             }
         }
-        for (const auto &prescription : prescriptions) {
+        for (auto &prescription : prescriptions) {
+            if (createPll) {
+                if (prescription.GetPllId().empty()) {
+                    boost::uuids::uuid uuid = boost::uuids::random_generator()();
+                    std::string uuid_string = to_string(uuid);
+                    prescription.SetPllId(uuid_string);
+                }
+            } else {
+                prescription.SetPllId("");
+            }
             auto id = prescriptionStorage.Store(patientId, prescription);
             list.emplace_back(id);
             ++prescriptionCount;
