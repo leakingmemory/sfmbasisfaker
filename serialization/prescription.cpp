@@ -125,6 +125,9 @@ std::string Prescription::Serialize() const {
     if (!pllId.empty()) {
         obj["pllId"] = web::json::value::string(pllId);
     }
+    if (!previousId.empty()) {
+        obj["previousId"] = web::json::value::string(previousId);
+    }
     if (medication) {
         obj["medication"] = medication->Serialize();
     }
@@ -164,6 +167,9 @@ Prescription Prescription::Parse(const std::string &json) {
     }
     if (obj.has_string_field("pllId")) {
         prescription.pllId = obj.at("pllId").as_string();
+    }
+    if (obj.has_string_field("previousId")) {
+        prescription.previousId = obj.at("previousId").as_string();
     }
     if (obj.has_object_field("medication")) {
         prescription.medication = Medication::Parse(obj.at("medication"));

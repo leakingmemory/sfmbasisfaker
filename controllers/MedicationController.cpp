@@ -213,6 +213,10 @@ FhirParameters MedicationController::GetMedication(const std::string &selfUrl, c
     std::vector<FhirBundleEntry> medicamentEntries{};
     std::vector<FhirBundleEntry> medicationStatementEntries{};
     std::vector<FhirReference> medicationSectionEntries{};
+    std::map<std::string,std::shared_ptr<FhirMedicationStatement>> urlToMedicationStatementMap{};
+    std::map<std::string,FhirReference> urlToStatementReferenceMap{};
+    std::map<std::string,std::string> prescriptionIdToUrlMap{};
+    std::map<std::string,std::string> prescriptionIdToPreviousIdMap{};
     {
         PrescriptionStorage prescriptionStorage{};
         CreatePrescriptionService createPrescriptionService{};
@@ -232,7 +236,18 @@ FhirParameters MedicationController::GetMedication(const std::string &selfUrl, c
             if (!medicationStatementResource) {
                 continue;
             }
+            urlToMedicationStatementMap.insert_or_assign(medicationStatementRef,medicationStatementResource);
             std::string medicationStatementDisplay = medicationStatementResource->GetDisplay();
+            FhirReference medicationStatementReferenceObject{medicationStatementRef, "http://ehelse.no/fhir/StructureDefinition/sfm-MedicationStatement", medicationStatementDisplay};
+            urlToStatementReferenceMap.insert_or_assign(medicationStatementRef,medicationStatementReferenceObject);
+            auto prescriptionId = prescription.GetId();
+            if (!prescriptionId.empty()) {
+                prescriptionIdToUrlMap.insert_or_assign(prescriptionId,medicationStatementRef);
+            }
+            auto previousPrescriptionId = prescription.GetPreviousId();
+            if (!previousPrescriptionId.empty()) {
+                prescriptionIdToPreviousIdMap.insert_or_assign(prescriptionId,previousPrescriptionId);
+            }
             std::string medicationRef{};
             std::string medicationType{};
             std::string medicationDisplay{};
@@ -262,7 +277,48 @@ FhirParameters MedicationController::GetMedication(const std::string &selfUrl, c
                 medicationStatementResource->SetSubject(subjectReference);
             }
             medicationStatementEntries.emplace_back(medicationStatement);
-            medicationSectionEntries.emplace_back(medicationStatementRef, "http://ehelse.no/fhir/StructureDefinition/sfm-MedicationStatement", medicationStatementDisplay);
+            medicationSectionEntries.emplace_back(medicationStatementReferenceObject);
+        }
+    }
+    {
+        std::vector<std::string> urlRefsToRemove{};
+        for (const auto &prevMapEntry : prescriptionIdToPreviousIdMap) {
+            auto prescriptionId = prevMapEntry.first;
+            auto prevId = prevMapEntry.second;
+            auto prevUrl = prescriptionIdToUrlMap.find(prevId);
+            if (prevUrl == prescriptionIdToUrlMap.end()) {
+                continue;
+            }
+            urlRefsToRemove.emplace_back(prevUrl->second);
+            auto prescriptionUrl = prescriptionIdToUrlMap.find(prescriptionId);
+            if (prescriptionUrl == prescriptionIdToUrlMap.end()) {
+                continue;
+            }
+            auto prevStatement = urlToMedicationStatementMap.find(prevUrl->second);
+            if (prevStatement == urlToMedicationStatementMap.end()) {
+                continue;
+            }
+            auto statement = urlToMedicationStatementMap.find(prescriptionUrl->second);
+            if (statement == urlToMedicationStatementMap.end()) {
+                continue;
+            }
+            auto prevRef = urlToStatementReferenceMap.find(prevUrl->second);
+            if (prevRef != urlToStatementReferenceMap.end()) {
+                statement->second->SetBasedOn({prevRef->second});
+            }
+            auto nextRef = urlToStatementReferenceMap.find(prescriptionUrl->second);
+            if (nextRef != urlToStatementReferenceMap.end()) {
+                prevStatement->second->SetPartOf({nextRef->second});
+            }
+        }
+        auto iterator = medicationSectionEntries.begin();
+        while (iterator != medicationSectionEntries.end()) {
+            auto ref = iterator->GetReference();
+            if (std::find(urlRefsToRemove.cbegin(), urlRefsToRemove.cend(), ref) == urlRefsToRemove.cend()) {
+                ++iterator;
+            } else {
+                iterator = medicationSectionEntries.erase(iterator);
+            }
         }
     }
     FhirCompositionSection medicationSection{};
@@ -436,6 +492,7 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
     std::vector<std::string> injectedPllIds{};
     std::vector<Prescription> prescriptions{};
     std::map<std::string,Code> potentialRecalls{};
+    std::map<std::string,std::string> toPreviousPrescription{};
     {
         std::vector<std::shared_ptr<FhirMedicationStatement>> medicationStatements{};
         std::map<std::string,std::shared_ptr<FhirBasic>> fhirBasics{};
@@ -645,6 +702,9 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
                                     std::tuple<Code,std::shared_ptr<FhirMedicationStatement>> codeTuple =
                                             {{recallCode, recallDisplay, recallSystem}, medicationStatement};
                                     potentialRecallsWithStatements.insert_or_assign(recallId, codeTuple);
+                                    if ((recallCode == "1" || recallCode == "3") && recallId != prescriptionId) {
+                                        toPreviousPrescription.insert_or_assign(prescriptionId, recallId);
+                                    }
                                 }
                             }
                         }
@@ -703,10 +763,30 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
             filePrescriptionMap.insert_or_assign(fileId, prescription);
             auto pllId = prescription->GetPllId();
             auto prescriptionId = prescription->GetId();
+            for (auto &prescription : prescriptions) {
+                auto id = prescription.GetId();
+                if (id == prescriptionId) {
+                    return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Create prescription without renew", "Fatal")));
+                }
+                auto prevPresIdIter = toPreviousPrescription.find(id);
+            }
             if (createPll && !prescriptionId.empty() && !pllId.empty() &&
                 std::find(ePrescriptionIds.cbegin(), ePrescriptionIds.cend(), prescriptionId) != ePrescriptionIds.cend() &&
                 std::find(injectedPllIds.cbegin(), injectedPllIds.cend(), pllId) != injectedPllIds.cend()) {
                 return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Existing and kept PLL ID reused on a new prescription", "Fatal")));
+            }
+        }
+        for (auto &prescription : prescriptions) {
+            auto id = prescription.GetId();
+            if (id.empty()) {
+                if (!createPll || prescription.GetPllId().empty()) {
+                    return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Requested create prescription without ID", "Fatal")));
+                }
+                return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Without prescription is not yet supported", "Fatal")));
+            }
+            auto prevPresIdIter = toPreviousPrescription.find(id);
+            if (prevPresIdIter != toPreviousPrescription.end()) {
+                prescription.SetPreviousId(prevPresIdIter->second);
             }
         }
         if (createPll) {

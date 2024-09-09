@@ -155,6 +155,7 @@ class Prescription {
 private:
     std::string id{};
     std::string pllId{};
+    std::string previousId{};
     std::shared_ptr<Medication> medication{};
     Code use{};
     std::string applicationArea{};
@@ -189,6 +190,12 @@ public:
     }
     void SetPllId(const std::string &pllId) {
         this->pllId = pllId;
+    }
+    [[nodiscard]] std::string GetPreviousId() const {
+        return previousId;
+    }
+    void SetPreviousId(const std::string &prevId) {
+        this->previousId = prevId;
     }
     [[nodiscard]] std::shared_ptr<Medication> GetMedication() const {
         return medication;
