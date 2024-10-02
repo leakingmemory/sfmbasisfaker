@@ -176,6 +176,8 @@ private:
     std::string treatmentStartedBy{};
     std::string treatmentStartedTimestamp{};
     std::string patient{};
+    std::string cessationTime{};
+    Code cessationReason{};
     Code recallCode{};
     bool genericSubstitutionAccepted{false};
 public:
@@ -322,6 +324,18 @@ public:
     }
     void SetGenericSubstitutionAccepted(bool genericSubstitutionAccepted) {
         this->genericSubstitutionAccepted = genericSubstitutionAccepted;
+    }
+    [[nodiscard]] std::string GetCessationTime() const {
+        return cessationTime;
+    }
+    void SetCessationTime(const std::string &ct) {
+        cessationTime = ct;
+    }
+    [[nodiscard]] Code GetCessationReason() const {
+        return cessationReason;
+    }
+    void SetCessationReason(const Code &cr) {
+        cessationReason = cr;
     }
     [[nodiscard]] Code GetRecallCode() const {
         return recallCode;

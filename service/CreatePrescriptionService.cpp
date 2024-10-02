@@ -362,12 +362,13 @@ CreatePrescriptionService::CreatePrescription(const std::shared_ptr<FhirMedicati
         auto extensions = dosage.GetExtensions();
         for (const auto &extension : extensions) {
             auto url = extension->GetUrl();
+            std::transform(url.cbegin(), url.cend(), url.begin(), [] (char ch) { return std::tolower(ch); });
             auto valueExtension = std::dynamic_pointer_cast<FhirValueExtension>(extension);
             std::shared_ptr<FhirValue> value{};
             if (valueExtension) {
                 value = valueExtension->GetValue();
             }
-            if (url == "http://ehelse.no/fhir/StructureDefinition/sfm-use") {
+            if (url == "http://ehelse.no/fhir/structuredefinition/sfm-use") {
                 auto codeableConcept = std::dynamic_pointer_cast<FhirCodeableConceptValue>(value);
                 if (codeableConcept) {
                     auto codings = codeableConcept->GetCoding();
@@ -376,7 +377,7 @@ CreatePrescriptionService::CreatePrescription(const std::shared_ptr<FhirMedicati
                         prescription.SetUse({coding.GetCode(), coding.GetDisplay(), coding.GetSystem()});
                     }
                 }
-            } else if (url == "http://ehelse.no/fhir/StructureDefinition/sfm-application-area") {
+            } else if (url == "http://ehelse.no/fhir/structuredefinition/sfm-application-area") {
                 std::map<std::string,std::shared_ptr<FhirValue>> submap{};
                 {
                     auto subextensions = extension->GetExtensions();
@@ -422,7 +423,8 @@ CreatePrescriptionService::CreatePrescription(const std::shared_ptr<FhirMedicati
     auto statementExtensions = medicationStatement->GetExtensions();
     for (const auto &statementExtension : statementExtensions) {
         auto statementExtensionUrl = statementExtension->GetUrl();
-        if (statementExtensionUrl == "http://ehelse.no/fhir/StructureDefinition/sfm-reseptamendment") {
+        std::transform(statementExtensionUrl.cbegin(), statementExtensionUrl.cend(), statementExtensionUrl.begin(), [] (char ch) { return std::tolower(ch); });
+        if (statementExtensionUrl == "http://ehelse.no/fhir/structuredefinition/sfm-reseptamendment") {
             auto extensions = statementExtension->GetExtensions();
             for (const auto &extension : extensions) {
                 auto url = extension->GetUrl();
@@ -508,7 +510,7 @@ CreatePrescriptionService::CreatePrescription(const std::shared_ptr<FhirMedicati
                     }
                 }
             }
-        } else if (statementExtensionUrl == "http://ehelse.no/fhir/StructureDefinition/sfm-regInfo") {
+        } else if (statementExtensionUrl == "http://ehelse.no/fhir/structuredefinition/sfm-regInfo") {
             Code status{};
             Code type{};
             std::string provider{};
@@ -558,7 +560,7 @@ CreatePrescriptionService::CreatePrescription(const std::shared_ptr<FhirMedicati
                 prescription.SetPrescribedBy(provider);
                 prescription.SetPrescribedTimestamp(timestamp);
             }
-        } else if (statementExtensionUrl == "http://ehelse.no/fhir/StructureDefinition/sfm-generic-substitution") {
+        } else if (statementExtensionUrl == "http://ehelse.no/fhir/structuredefinition/sfm-generic-substitution") {
             auto extensions = statementExtension->GetExtensions();
             for (const auto &extension : extensions) {
                 if (extension->GetUrl() == "genericSubstitutionAccepted") {
@@ -570,6 +572,46 @@ CreatePrescriptionService::CreatePrescription(const std::shared_ptr<FhirMedicati
                         }
                     }
                 }
+            }
+        } else if (statementExtensionUrl == "http://ehelse.no/fhir/structuredefinition/sfm-discontinuation") {
+            std::string timeDate{};
+            FhirCodeableConcept reason{};
+            std::string note{};
+            for (const auto &subExtension: statementExtension->GetExtensions()) {
+                auto valueExtension = std::dynamic_pointer_cast<FhirValueExtension>(subExtension);
+                if (!valueExtension) {
+                    continue;
+                }
+                auto url = subExtension->GetUrl();
+                std::transform(url.cbegin(), url.cend(), url.begin(), [] (char ch) { return std::tolower(ch); });
+                if (url == "timedate") {
+                    auto value = std::dynamic_pointer_cast<FhirString>(valueExtension->GetValue());
+                    if (value) {
+                        timeDate = value->GetValue();
+                    }
+                } else if (url == "reason") {
+                    auto value = std::dynamic_pointer_cast<FhirCodeableConceptValue>(valueExtension->GetValue());
+                    if (value) {
+                        reason = *value;
+                    }
+                } else if (url == "note") {
+                    auto value = std::dynamic_pointer_cast<FhirString>(valueExtension->GetValue());
+                    if (value) {
+                        note = value->GetValue();
+                    }
+                }
+            }
+            prescription.SetCessationTime(timeDate);
+            auto codings = reason.GetCoding();
+            if (!codings.empty()) {
+                if (codings.size() == 1) {
+                    auto coding = codings[0];
+                    Code code{coding.GetCode(), coding.GetDisplay(), coding.GetSystem()};
+                    prescription.SetCessationReason(code);
+                }
+            } else {
+                Code code{"", note, ""};
+                prescription.SetCessationReason(code);
             }
         }
     }
@@ -1019,6 +1061,21 @@ FhirBundleEntry CreatePrescriptionService::CreateFhirMedicationStatement(const P
             }
         }
         medicationStatement->AddExtension(reseptAmendment);
+    }
+    {
+        auto cessationTime = prescription.GetCessationTime();
+        auto cessationReason = prescription.GetCessationReason();
+        if (!cessationTime.empty()) {
+            auto discontinuation = std::make_shared<FhirExtension>("http://ehelse.no/fhir/StructureDefinition/sfm-discontinuation");
+            discontinuation->AddExtension(std::make_shared<FhirValueExtension>("timeDate", std::make_shared<FhirDateTimeValue>(cessationTime)));
+            if (!cessationReason.getCode().empty()) {
+                FhirCodeableConcept codeable{cessationReason.getSystem(), cessationReason.getCode(), cessationReason.getDisplay()};
+                discontinuation->AddExtension(std::make_shared<FhirValueExtension>("reason", std::make_shared<FhirCodeableConceptValue>(codeable)));
+            } else {
+                discontinuation->AddExtension(std::make_shared<FhirValueExtension>("note", std::make_shared<FhirString>(cessationReason.getDisplay())));
+            }
+            medicationStatement->AddExtension(discontinuation);
+        }
     }
     {
         auto regInfo = std::make_shared<FhirExtension>("http://ehelse.no/fhir/StructureDefinition/sfm-regInfo");

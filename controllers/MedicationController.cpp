@@ -485,6 +485,11 @@ static std::shared_ptr<FhirOperationOutcome> CreateOperationOutcome(const std::v
     return op;
 }
 
+struct PllCessation {
+    Code reason{};
+    std::string timeDate{};
+};
+
 std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bundle) {
     bool createPll{false};
     std::string patientId{};
@@ -492,6 +497,7 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
     std::vector<std::string> injectedPllIds{};
     std::vector<Prescription> prescriptions{};
     std::map<std::string,Code> potentialRecalls{};
+    std::map<std::string,PllCessation> potentialPllCessations{};
     std::map<std::string,std::string> toPreviousPrescription{};
     {
         std::vector<std::shared_ptr<FhirMedicationStatement>> medicationStatements{};
@@ -640,14 +646,18 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
                     std::transform(type.cbegin(), type.cend(), type.begin(), [] (char ch) { return std::tolower(ch); });
                     if (type == "reseptid") {
                         prescriptionId = identifier.GetValue();
-                    } else if (type == "pllid") {
+                    } else if (type == "pll") {
                         pllId = identifier.GetValue();
                     }
                 }
+                PllCessation pllCessation{};
                 for (const auto &extension: medicationStatement->GetExtensions()) {
-                    if (extension->GetUrl() == "http://ehelse.no/fhir/StructureDefinition/sfm-reseptamendment") {
+                    auto url = extension->GetUrl();
+                    std::transform(url.cbegin(), url.cend(), url.begin(), [] (char ch) { return std::tolower(ch); });
+                    if (url == "http://ehelse.no/fhir/structuredefinition/sfm-reseptamendment") {
                         for (const auto &subExtension: extension->GetExtensions()) {
                             auto url = subExtension->GetUrl();
+                            std::transform(url.cbegin(), url.cend(), url.begin(), [] (char ch) { return std::tolower(ch); });
                             if (url == "createeresept") {
                                 auto valueExtension = std::dynamic_pointer_cast<FhirValueExtension>(subExtension);
                                 if (valueExtension) {
@@ -708,7 +718,67 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
                                 }
                             }
                         }
+                    } else if (url == "http://ehelse.no/fhir/structuredefinition/sfm-discontinuation") {
+                        std::string timeDate{};
+                        FhirCodeableConcept reason{};
+                        std::string note{};
+                        for (const auto &subExtension: extension->GetExtensions()) {
+                            auto valueExtension = std::dynamic_pointer_cast<FhirValueExtension>(subExtension);
+                            if (!valueExtension) {
+                                continue;
+                            }
+                            auto url = subExtension->GetUrl();
+                            std::transform(url.cbegin(), url.cend(), url.begin(), [] (char ch) { return std::tolower(ch); });
+                            if (url == "timedate") {
+                                auto value = std::dynamic_pointer_cast<FhirDateTimeValue>(valueExtension->GetValue());
+                                if (value) {
+                                    timeDate = value->GetDateTime();
+                                }
+                            } else if (url == "reason") {
+                                auto value = std::dynamic_pointer_cast<FhirCodeableConceptValue>(valueExtension->GetValue());
+                                if (value) {
+                                    reason = *value;
+                                }
+                            } else if (url == "note") {
+                                auto value = std::dynamic_pointer_cast<FhirString>(valueExtension->GetValue());
+                                if (value) {
+                                    note = value->GetValue();
+                                }
+                            }
+                        }
+                        if (timeDate.empty()) {
+                            return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Discontinuation without timedate", "Fatal")));
+                        }
+                        pllCessation.timeDate = timeDate;
+                        auto codings = reason.GetCoding();
+                        if (!codings.empty()) {
+                            if (!note.empty()) {
+                                return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Either reason or note for discontinuation", "Fatal")));
+                            }
+                            if (codings.size() != 1) {
+                                return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Multiple reason codes for discontinuation", "Fatal")));
+                            }
+                            auto coding = codings[0];
+                            if (coding.GetCode().empty()) {
+                                return CreateOperationOutcome(CreateIssues(CreateIssue("X", "No reason code supplied for discontinuation", "Fatal")));
+                            }
+                            if (!reason.GetText().empty()) {
+                                return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Reason text should not be set for discontinuation", "Fatal")));
+                            }
+                            pllCessation.reason.setSystem(coding.GetSystem());
+                            pllCessation.reason.setCode(coding.GetCode());
+                            pllCessation.reason.setDisplay(coding.GetDisplay());
+                        } else {
+                            if (note.empty()) {
+                                return CreateOperationOutcome(CreateIssues(
+                                        CreateIssue("X", "No reason or note supplied for discontinuation", "Fatal")));
+                            }
+                            pllCessation.reason.setDisplay(note);
+                        }
                     }
+                }
+                if (!pllId.empty() && !pllCessation.timeDate.empty()) {
+                    potentialPllCessations.insert_or_assign(pllId, pllCessation);
                 }
                 if (createeresept) {
                     ++medicationStatementIterator;
@@ -794,9 +864,18 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
                 auto fileId = filePrescriptionMapping.first;
                 auto prescription = filePrescriptionMapping.second;
                 auto pllId = prescription->GetPllId();
-                if (!pllId.empty() && std::find(injectedPllIds.cbegin(), injectedPllIds.cend(), pllId) != injectedPllIds.cend()) {
-                    prescription->SetPllId("");
-                    prescriptionStorage.Replace(patientId, fileId, *prescription);
+                if (!pllId.empty()) {
+                    if (std::find(injectedPllIds.cbegin(), injectedPllIds.cend(), pllId) != injectedPllIds.cend()) {
+                        prescription->SetPllId("");
+                        prescriptionStorage.Replace(patientId, fileId, *prescription);
+                    } else if (prescription->GetCessationTime().empty()) {
+                        auto maybeCeased = potentialPllCessations.find(pllId);
+                        if (maybeCeased != potentialPllCessations.end()) {
+                            prescription->SetCessationReason(maybeCeased->second.reason);
+                            prescription->SetCessationTime(maybeCeased->second.timeDate);
+                            prescriptionStorage.Replace(patientId, fileId, *prescription);
+                        }
+                    }
                 }
             }
         }

@@ -156,6 +156,8 @@ std::string Prescription::Serialize() const {
     obj["patient"] = web::json::value::string(patient);
     obj["genericSubstitutionAccepted"] = web::json::value::boolean(genericSubstitutionAccepted);
     obj["recallCode"] = recallCode.Serialize();
+    obj["cessationReason"] = cessationReason.Serialize();
+    obj["cessationTime"] = web::json::value::string(cessationTime);
     return obj.serialize();
 }
 
@@ -236,6 +238,12 @@ Prescription Prescription::Parse(const std::string &json) {
     }
     if (obj.has_object_field("recallCode")) {
         prescription.recallCode = Code::Parse(obj.at("recallCode"));
+    }
+    if (obj.has_object_field("cessationReason")) {
+        prescription.cessationReason = Code::Parse(obj.at("cessationReason"));
+    }
+    if (obj.has_string_field("cessationTime")) {
+        prescription.cessationTime = obj.at("cessationTime").as_string();
     }
     return prescription;
 }
