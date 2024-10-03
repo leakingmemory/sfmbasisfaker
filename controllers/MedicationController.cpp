@@ -893,14 +893,23 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
             while (iterator != potentialRecalls.end()) {
                 auto &potentialRecall = *iterator;
                 if (potentialRecall.first == prescriptionId) {
-                    prescription->SetRecallCode(potentialRecall.second);
-                    prescriptionStorage.Replace(patientId, fileId, *prescription);
-                    std::vector<std::shared_ptr<FhirParameter>> parameters{};
-                    parameters.emplace_back(std::make_shared<FhirParameter>("reseptID", std::make_shared<FhirString>(prescription->GetId())));
-                    parameters.emplace_back(std::make_shared<FhirParameter>("resultCode", std::make_shared<FhirCodingValue>("http://ehelse.no/fhir/CodeSystem/sfm-kj-rf-error-code", "1", "Tilbakekalt")));
-                    prescriptionOperationResult.emplace_back(parameters);
+                    auto rfStatusCode = prescription->GetRfStatus().getCode();
+                    if (rfStatusCode == "E" || rfStatusCode == "U") {
+                        prescription->SetRecallCode(potentialRecall.second);
+                        prescription->SetRfStatus(Code("T", "Tilbakekalt", "urn:oid:2.16.578.1.12.4.1.1.7408"));
+                        prescriptionStorage.Replace(patientId, fileId, *prescription);
+                        std::vector<std::shared_ptr<FhirParameter>> parameters{};
+                        parameters.emplace_back(std::make_shared<FhirParameter>("reseptID",
+                                                                                std::make_shared<FhirString>(
+                                                                                        prescription->GetId())));
+                        parameters.emplace_back(std::make_shared<FhirParameter>("resultCode",
+                                                                                std::make_shared<FhirCodingValue>(
+                                                                                        "http://ehelse.no/fhir/CodeSystem/sfm-kj-rf-error-code",
+                                                                                        "1", "Tilbakekalt")));
+                        prescriptionOperationResult.emplace_back(parameters);
+                        ++recallCount;
+                    }
                     iterator = potentialRecalls.erase(iterator);
-                    ++recallCount;
                     break;
                 } else {
                     ++iterator;
