@@ -940,7 +940,7 @@ FhirBundleEntry CreatePrescriptionService::CreateFhirMedicationStatement(const P
             medicationStatement->AddIdentifier(identifier);
         }
     }
-    {
+    if (prescription.GetTypeOfPrescription().getCode() == "E") {
         FhirCodeableConcept type{"ReseptId"};
         FhirIdentifier identifier{type, "usual", prescription.GetId()};
         medicationStatement->AddIdentifier(identifier);

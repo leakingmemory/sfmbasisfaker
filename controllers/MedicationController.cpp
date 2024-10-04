@@ -801,6 +801,12 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
                 }
             }
             patientId = prescription.GetPatient();
+            if (prescription.GetTypeOfPrescription().getCode() != "E") {
+                boost::uuids::uuid uuid = boost::uuids::random_generator()();
+                std::string uuid_string = to_string(uuid);
+                prescription.SetId(uuid_string);
+                prescription.SetRfStatus({});
+            }
             prescriptions.emplace_back(prescription);
         }
         for (const auto &recallTuple : potentialRecallsWithStatements) {
@@ -844,6 +850,12 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
                 std::find(ePrescriptionIds.cbegin(), ePrescriptionIds.cend(), prescriptionId) != ePrescriptionIds.cend() &&
                 std::find(injectedPllIds.cbegin(), injectedPllIds.cend(), pllId) != injectedPllIds.cend()) {
                 return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Existing and kept PLL ID reused on a new prescription", "Fatal")));
+            }
+            if (potentialRecalls.find(prescriptionId) != potentialRecalls.end()) {
+                auto rfStatus = prescription->GetRfStatus().getCode();
+                if (rfStatus != "E" && rfStatus != "U") {
+                    return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Recalling inactive prescription", "Fatal")));
+                }
             }
         }
         for (auto &prescription : prescriptions) {
