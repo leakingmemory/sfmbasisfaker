@@ -158,6 +158,8 @@ private:
     std::string previousId{};
     std::shared_ptr<Medication> medication{};
     Code use{};
+    Code shortDose{};
+    std::string dosingText{};
     std::string applicationArea{};
     std::string prescriptionDate{};
     std::string expirationDate{};
@@ -210,6 +212,18 @@ public:
     }
     void SetUse(const Code &use) {
         this->use = use;
+    }
+    [[nodiscard]] Code GetShortDose() const {
+        return shortDose;
+    }
+    void SetShortDose(const Code &shortDose) {
+        this->shortDose = shortDose;
+    }
+    [[nodiscard]] std::string GetDosingText() const {
+        return dosingText;
+    }
+    void SetDosingText(const std::string &dosingText) {
+        this->dosingText = dosingText;
     }
     [[nodiscard]] std::string GetApplicationArea() const {
         return applicationArea;

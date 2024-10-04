@@ -359,6 +359,7 @@ CreatePrescriptionService::CreatePrescription(const std::shared_ptr<FhirMedicati
             return {};
         }
         auto dosage = dosages[0];
+        prescription.SetDosingText(dosage.GetText());
         auto extensions = dosage.GetExtensions();
         for (const auto &extension : extensions) {
             auto url = extension->GetUrl();
@@ -393,6 +394,15 @@ CreatePrescriptionService::CreatePrescription(const std::shared_ptr<FhirMedicati
                     auto str = std::dynamic_pointer_cast<FhirString>(findText->second);
                     if (str) {
                         prescription.SetApplicationArea(str->GetValue());
+                    }
+                }
+            } else if (url == "http://ehelse.no/fhir/structuredefinition/sfm-shortdosage") {
+                auto codeableConcept = std::dynamic_pointer_cast<FhirCodeableConceptValue>(value);
+                if (codeableConcept) {
+                    auto codings = codeableConcept->GetCoding();
+                    if (!codings.empty()) {
+                        auto coding = codings[0];
+                        prescription.SetShortDose({coding.GetCode(), coding.GetDisplay(), coding.GetSystem()});
                     }
                 }
             }
@@ -510,7 +520,7 @@ CreatePrescriptionService::CreatePrescription(const std::shared_ptr<FhirMedicati
                     }
                 }
             }
-        } else if (statementExtensionUrl == "http://ehelse.no/fhir/structuredefinition/sfm-regInfo") {
+        } else if (statementExtensionUrl == "http://ehelse.no/fhir/structuredefinition/sfm-reginfo") {
             Code status{};
             Code type{};
             std::string provider{};
@@ -891,7 +901,11 @@ FhirBundleEntry CreatePrescriptionService::CreateFhirMedicationStatement(const P
     }
     auto medicationStatement = std::make_shared<FhirMedicationStatement>();
     {
-        FhirDosage dosage{prescription.GetDssn(), 1};
+        std::string dosingText{prescription.GetDosingText()};
+        if (dosingText.empty()) {
+            dosingText = prescription.GetDssn();
+        }
+        FhirDosage dosage{dosingText, 1};
         {
             auto use = prescription.GetUse();
             FhirCodeableConcept codeable{use.getSystem(), use.getCode(), use.getDisplay()};
@@ -904,6 +918,11 @@ FhirBundleEntry CreatePrescriptionService::CreateFhirMedicationStatement(const P
             auto ext = std::make_shared<FhirExtension>("http://ehelse.no/fhir/StructureDefinition/sfm-application-area");
             ext->AddExtension(std::make_shared<FhirValueExtension>("text", std::make_shared<FhirString>(prescription.GetApplicationArea())));
             dosage.AddExtension(ext);
+        }
+        auto shortDose = prescription.GetShortDose();
+        if (!shortDose.getCode().empty()) {
+            FhirCodeableConcept codeable{shortDose.getSystem(), shortDose.getCode(), shortDose.getDisplay()};
+            dosage.AddExtension(std::make_shared<FhirValueExtension>("http://ehelse.no/fhir/StructureDefinition/sfm-shortdosage", std::make_shared<FhirCodeableConceptValue>(codeable)));
         }
         medicationStatement->AddDosage(dosage);
     }
