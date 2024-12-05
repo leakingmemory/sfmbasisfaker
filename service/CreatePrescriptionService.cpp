@@ -389,11 +389,21 @@ CreatePrescriptionService::CreatePrescription(const std::shared_ptr<FhirMedicati
                         }
                     }
                 }
-                auto findText = submap.find("text");
-                if (findText != submap.end()) {
-                    auto str = std::dynamic_pointer_cast<FhirString>(findText->second);
-                    if (str) {
-                        prescription.SetApplicationArea(str->GetValue());
+                auto findCoded = submap.find("coded");
+                if (findCoded != submap.end()) {
+                    auto codeableConcept = std::dynamic_pointer_cast<FhirCodeableConceptValue>(findCoded->second);
+                    auto codings = codeableConcept->GetCoding();
+                    if (!codings.empty()) {
+                        auto coding = codings[0];
+                        prescription.SetApplicationArea(Code(coding.GetCode(), coding.GetDisplay(), coding.GetSystem()));
+                    }
+                } else {
+                    auto findText = submap.find("text");
+                    if (findText != submap.end()) {
+                        auto str = std::dynamic_pointer_cast<FhirString>(findText->second);
+                        if (str) {
+                            prescription.SetApplicationArea(str->GetValue());
+                        }
                     }
                 }
             } else if (url == "http://ehelse.no/fhir/structuredefinition/sfm-shortdosage") {

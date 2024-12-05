@@ -160,7 +160,7 @@ private:
     Code use{};
     Code shortDose{};
     std::string dosingText{};
-    std::string applicationArea{};
+    Code applicationArea{};
     std::string prescriptionDate{};
     std::string expirationDate{};
     std::string festUpdate{};
@@ -226,9 +226,12 @@ public:
         this->dosingText = dosingText;
     }
     [[nodiscard]] std::string GetApplicationArea() const {
-        return applicationArea;
+        return applicationArea.getDisplay();
     }
     void SetApplicationArea(const std::string &applicationArea) {
+        this->applicationArea = Code("", applicationArea, "");
+    }
+    void SetApplicationArea(const Code &applicationArea) {
         this->applicationArea = applicationArea;
     }
     [[nodiscard]] std::string GetPrescriptionDate() const {

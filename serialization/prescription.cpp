@@ -134,7 +134,7 @@ std::string Prescription::Serialize() const {
     obj["use"] = use.Serialize();
     obj["shortDose"] = shortDose.Serialize();
     obj["dosingText"] = web::json::value::string(dosingText);
-    obj["applicationArea"] = web::json::value::string(applicationArea);
+    obj["applicationArea"] = applicationArea.Serialize();
     obj["prescriptionDate"] = web::json::value::string(prescriptionDate);
     obj["expirationDate"] = web::json::value::string(expirationDate);
     obj["festUpdate"] = web::json::value::string(festUpdate);
@@ -188,7 +188,9 @@ Prescription Prescription::Parse(const std::string &json) {
         prescription.dosingText = obj.at("dosingText").as_string();
     }
     if (obj.has_string_field("applicationArea")) {
-        prescription.applicationArea = obj.at("applicationArea").as_string();
+        prescription.applicationArea = Code("", obj.at("applicationArea").as_string(), "");
+    } else if (obj.has_object_field("applicationArea")) {
+        prescription.applicationArea = Code::Parse(obj.at("applicationArea"));
     }
     if (obj.has_string_field("prescriptionDate")) {
         prescription.prescriptionDate = obj.at("prescriptionDate").as_string();
