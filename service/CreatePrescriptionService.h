@@ -17,6 +17,11 @@ class Person;
 class FhirPerson;
 class FhirBundleEntry;
 
+struct PractitionerRef {
+    std::string id;
+    std::string name;
+};
+
 class CreatePrescriptionService {
 private:
     [[nodiscard]] Person GetPerson(const FhirPerson &fhir) const;
@@ -33,6 +38,7 @@ private:
     [[nodiscard]] std::vector<FhirBundleEntry> CreateFhirMedicationFromGeneric(const std::shared_ptr<GenericMedication> &generic) const;
 public:
     [[nodiscard]] std::vector<FhirBundleEntry> CreateFhirMedication(const std::shared_ptr<Medication> &medication) const;
+    [[nodiscard]] PractitionerRef GetPractitionerRef(const std::string &id, std::vector<FhirBundleEntry> &practitioners) const;
     [[nodiscard]] FhirBundleEntry CreateFhirMedicationStatement(const Prescription &prescription, std::vector<FhirBundleEntry> &practitioners);
 };
 

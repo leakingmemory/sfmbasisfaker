@@ -13,6 +13,7 @@
 #include <sfmbasisapi/fhir/medstatement.h>
 #include <sfmbasisapi/fhir/fhirbasic.h>
 #include <sfmbasisapi/fhir/operationoutcome.h>
+#include <sfmbasisapi/fhir/allergy.h>
 #include <sfmbasisapi/IsoDateTime.h>
 #include "../domain/person.h"
 #include "../domain/prescription.h"
@@ -333,11 +334,30 @@ FhirParameters MedicationController::GetMedication(const std::string &selfUrl, c
     } else {
         medicationSection.SetEntries(medicationSectionEntries);
     }
+    std::vector<FhirBundleEntry> allergyEntries{};
+    std::vector<FhirReference> allergyReferences{};
     std::shared_ptr<FhirBundleEntry> m251Entry{};
     {
         PllStorage pllStorage{};
         auto pll = pllStorage.Load(patient.GetId());
         if (pll.IsValid()) {
+            for (auto &pllAllergy : pll.GetAllergies()) {
+                std::string url{"urn:uuid:"};
+                {
+                    boost::uuids::uuid uuid = boost::uuids::random_generator()();
+                    std::string uuid_string = to_string(uuid);
+                    url.append(uuid_string);
+                }
+                {
+                    boost::uuids::uuid uuid = boost::uuids::random_generator()();
+                    std::string uuid_string = to_string(uuid);
+                    pllAllergy.SetId(uuid_string);
+                }
+                auto fhirAllergy = pllAllergy.ToFhir(practitioners);
+                auto &bundleEntry = allergyEntries.emplace_back(url, fhirAllergy);
+                allergyReferences.emplace_back(url, "http://nhn.no/kj/fhir/StructureDefinition/KjAllergyIntolerance", bundleEntry.GetResource()->GetDisplay());
+                fhirAllergy->SetPatient(patientEntry.CreateReference("http://ehelse.no/fhir/StructureDefinition/sfm-Patient"));
+            }
             m251Entry = std::make_shared<FhirBundleEntry>();
             std::string url{"urn:uuid:"};
             {
@@ -380,8 +400,15 @@ FhirParameters MedicationController::GetMedication(const std::string &selfUrl, c
     allergiesSection.SetTitle("Allergies");
     allergiesSection.SetCode(FhirCodeableConcept("http://ehelse.no/fhir/CodeSystem/sfm-section-types", "sectionAllergies", "Section allergies"));
     allergiesSection.SetTextStatus("generated");
-    allergiesSection.SetTextXhtml("<xhtml:div xmlns:xhtml=\"http://www.w3.org/1999/xhtml\"></xhtml:div>");
-    allergiesSection.SetEmptyReason(FhirCodeableConcept("http://terminology.hl7.org/CodeSystem/list-empty-reason", "unavailable", "Unavailable"));
+    if (allergyReferences.empty()) {
+        allergiesSection.SetTextXhtml("<xhtml:div xmlns:xhtml=\"http://www.w3.org/1999/xhtml\"></xhtml:div>");
+        allergiesSection.SetEmptyReason(
+                FhirCodeableConcept("http://terminology.hl7.org/CodeSystem/list-empty-reason", "unavailable",
+                                    "Unavailable"));
+    } else {
+        allergiesSection.SetTextXhtml("<xhtml:div xmlns:xhtml=\"http://www.w3.org/1999/xhtml\">List of allergies</xhtml:div>");
+        allergiesSection.SetEntries(allergyReferences);
+    }
     FhirCompositionSection otherPrescriptionsSection{};
     otherPrescriptionsSection.SetTitle("Other Prescriptions");
     otherPrescriptionsSection.SetCode(FhirCodeableConcept("http://ehelse.no/fhir/CodeSystem/sfm-section-types", "sectionOtherPrescriptions", "List of non medical prescriptions"));
@@ -449,6 +476,9 @@ FhirParameters MedicationController::GetMedication(const std::string &selfUrl, c
     for (const auto &entry : medicationStatementEntries) {
         bundle->AddEntry(entry);
     }
+    for (const auto &entry : allergyEntries) {
+        bundle->AddEntry(entry);
+    }
     if (m251Entry) {
         bundle->AddEntry(*m251Entry);
     }
@@ -496,12 +526,14 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
     std::vector<std::string> ePrescriptionIds{};
     std::vector<std::string> injectedPllIds{};
     std::vector<Prescription> prescriptions{};
+    std::vector<PllAllergy> allergies{};
     std::map<std::string,Code> potentialRecalls{};
     std::map<std::string,PllCessation> potentialPllCessations{};
     std::map<std::string,std::string> toPreviousPrescription{};
     {
         std::vector<std::shared_ptr<FhirMedicationStatement>> medicationStatements{};
         std::map<std::string,std::shared_ptr<FhirBasic>> fhirBasics{};
+        std::map<std::string,std::shared_ptr<FhirAllergyIntolerance>> fhirAllergies{};
         std::map<std::string,std::tuple<Code,std::shared_ptr<FhirMedicationStatement>>> potentialRecallsWithStatements{};
         CreatePrescriptionService createPrescriptionService{};
         {
@@ -518,6 +550,11 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
                 auto basic = std::dynamic_pointer_cast<FhirBasic>(entry.GetResource());
                 if (basic) {
                     fhirBasics.insert_or_assign(entry.GetFullUrl(), basic);
+                    continue;
+                }
+                auto allergy = std::dynamic_pointer_cast<FhirAllergyIntolerance>(entry.GetResource());
+                if (allergy) {
+                    fhirAllergies.insert_or_assign(entry.GetFullUrl(), allergy);
                 }
             }
             if (!composition) {
@@ -525,12 +562,15 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
             }
             FhirCompositionSection medicationSection{};
             FhirCompositionSection pllSection{};
+            FhirCompositionSection allergySection{};
             {
                 bool foundMedication{false};
                 bool foundPll{false};
+                bool foundAllergies{false};
                 for (const auto &section: composition->GetSections()) {
                     bool isMedication{false};
                     bool isPllInfo{false};
+                    bool isAllergies{false};
                     for (const auto &coding: section.GetCode().GetCoding()) {
                         auto code = coding.GetCode();
                         std::transform(code.cbegin(), code.cend(), code.begin(), [] (char ch) { return std::tolower(ch); });
@@ -540,6 +580,10 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
                         }
                         if (code == "sectionpllinfo") {
                             isPllInfo = true;
+                            break;
+                        }
+                        if (code == "sectionallergies") {
+                            isAllergies = true;
                             break;
                         }
                     }
@@ -560,12 +604,22 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
                         pllSection = section;
                         foundPll = true;
                     }
+                    if (isAllergies) {
+                        if (foundAllergies) {
+                            return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Multiple allergies sections", "Fatal")));
+                        }
+                        allergySection = section;
+                        foundAllergies = true;
+                    }
                 }
                 if (!foundMedication) {
                     return CreateOperationOutcome(CreateIssues(CreateIssue("X", "No medication section", "Fatal")));
                 }
                 if (!foundPll) {
                     return CreateOperationOutcome(CreateIssues(CreateIssue("X", "No PLL info section", "Fatal")));
+                }
+                if (!foundAllergies) {
+                    return CreateOperationOutcome(CreateIssues(CreateIssue("X", "No allergy section", "Fatal")));
                 }
             }
             std::shared_ptr<FhirBasic> m251{};
@@ -791,6 +845,12 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
                     medicationStatementIterator = medicationStatements.erase(medicationStatementIterator);
                 }
             }
+            for (auto &allergyReference : allergySection.GetEntries()) {
+                auto iterator = fhirAllergies.find(allergyReference.GetReference());
+                if (iterator != fhirAllergies.end()) {
+                    allergies.emplace_back(PllAllergy::FromFhir(*(iterator->second), bundle));
+                }
+            }
         }
         for (const auto &medicationStatement : medicationStatements) {
             Prescription prescription = createPrescriptionService.CreatePrescription(medicationStatement, bundle);
@@ -958,6 +1018,7 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
                 auto now = DateTimeOffset::Now();
                 pll.SetDateTime(now.to_iso8601());
             }
+            pll.SetAllergies(std::move(allergies));
             pllStorage.Store(patientId, pll);
         }
     }

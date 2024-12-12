@@ -17,18 +17,22 @@ private:
     std::string display{};
     std::string system{};
 public:
-    Code() {}
-    Code(const std::string &code, const std::string &display, const std::string &system) : code(code), display(display), system(system) {}
+    constexpr Code() = default;
+    constexpr Code(const std::string &code, const std::string &display, const std::string &system) : code(code), display(display), system(system) {}
+    constexpr Code(const Code &) = default;
+    constexpr Code(Code &&) = default;
+    constexpr Code &operator = (const Code &) = default;
+    constexpr Code &operator = (Code &&) = default;
 
     // Getters
-    std::string getCode() const { return code; }
-    std::string getDisplay() const { return display; }
-    std::string getSystem() const { return system; }
+    constexpr std::string getCode() const { return code; }
+    constexpr std::string getDisplay() const { return display; }
+    constexpr std::string getSystem() const { return system; }
 
     // Setters
-    void setCode(const std::string& code) { this->code = code; }
-    void setDisplay(const std::string& display) { this->display = display; }
-    void setSystem(const std::string& system) { this->system = system; }
+    constexpr void setCode(const std::string& code) { this->code = code; }
+    constexpr void setDisplay(const std::string& display) { this->display = display; }
+    constexpr void setSystem(const std::string& system) { this->system = system; }
 
     [[nodiscard]] web::json::value Serialize() const;
     static Code Parse(const web::json::value &json);

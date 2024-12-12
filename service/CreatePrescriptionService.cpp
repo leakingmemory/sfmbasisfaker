@@ -834,27 +834,27 @@ std::vector<FhirBundleEntry> CreatePrescriptionService::CreateFhirMedication(con
     return {};
 }
 
-FhirBundleEntry CreatePrescriptionService::CreateFhirMedicationStatement(const Prescription &prescription, std::vector<FhirBundleEntry> &practitioners) {
+PractitionerRef
+CreatePrescriptionService::GetPractitionerRef(const std::string &id, std::vector<FhirBundleEntry> &practitioners) const {
+    if (id.empty()) {
+        return {};
+    }
     std::string prescribedByReference{};
     std::string prescribedByDisplay{};
     {
         Person prescribedBy{};
         {
             PersonStorage personStorage{};
-            auto prescribedById = prescription.GetPrescribedBy();
-            if (prescribedById.empty()) {
-                return {};
-            }
-            prescribedBy = personStorage.GetById(prescribedById);
+            prescribedBy = personStorage.GetById(id);
             if (prescribedBy.GetId().empty() || prescribedBy.GetFodselsnummer().empty()) {
                 return {};
             }
         }
-        for (const auto &practitionerEntry : practitioners) {
+        for (const auto &practitionerEntry: practitioners) {
             auto practitioner = std::dynamic_pointer_cast<FhirPerson>(practitionerEntry.GetResource());
             if (practitioner) {
                 bool matching{false};
-                for (const auto &identifier : practitioner->GetIdentifiers()) {
+                for (const auto &identifier: practitioner->GetIdentifiers()) {
                     if (identifier.GetSystem() == "urn:oid:2.16.578.1.12.4.1.4.1" &&
                         identifier.GetValue() == prescribedBy.GetFodselsnummer()) {
                         matching = true;
@@ -907,6 +907,20 @@ FhirBundleEntry CreatePrescriptionService::CreateFhirMedicationStatement(const P
             practitioners.emplace_back(fullUrl, practitioner);
             prescribedByReference = std::move(fullUrl);
             prescribedByDisplay = practitioner->GetDisplay();
+        }
+    }
+    return {.id = prescribedByReference, .name = prescribedByDisplay};
+}
+
+FhirBundleEntry CreatePrescriptionService::CreateFhirMedicationStatement(const Prescription &prescription, std::vector<FhirBundleEntry> &practitioners) {
+    std::string prescribedByReference{};
+    std::string prescribedByDisplay{};
+    {
+        auto prescribedBy = GetPractitionerRef(prescription.GetPrescribedBy(), practitioners);
+        prescribedByReference = prescribedBy.id;
+        prescribedByDisplay = prescribedBy.name;
+        if (prescribedByReference.empty()) {
+            return {};
         }
     }
     auto medicationStatement = std::make_shared<FhirMedicationStatement>();
