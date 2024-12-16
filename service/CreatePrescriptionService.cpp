@@ -962,6 +962,10 @@ FhirBundleEntry CreatePrescriptionService::CreateFhirMedicationStatement(const P
             FhirCodeableConcept type{"PLL"};
             FhirIdentifier identifier{type, "usual", pllId};
             medicationStatement->AddIdentifier(identifier);
+            auto treatmentStartedDate = prescription.GetTreatmentStartedTimestamp();
+            if (!treatmentStartedDate.empty()) {
+                medicationStatement->AddExtension(std::make_shared<FhirValueExtension>("effectivedatetime", std::make_shared<FhirDateValue>(treatmentStartedDate)));
+            }
         }
     }
     if (prescription.GetTypeOfPrescription().getCode() == "E") {

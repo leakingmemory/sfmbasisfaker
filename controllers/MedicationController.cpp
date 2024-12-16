@@ -520,6 +520,10 @@ struct PllCessation {
     std::string timeDate{};
 };
 
+struct PllEntryData {
+    std::string effectiveDate{};
+};
+
 std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bundle) {
     bool createPll{false};
     std::string patientId{};
@@ -529,6 +533,7 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
     std::vector<PllAllergy> allergies{};
     std::map<std::string,Code> potentialRecalls{};
     std::map<std::string,PllCessation> potentialPllCessations{};
+    std::map<std::string,PllEntryData> pllEntryDataMap{};
     std::map<std::string,std::string> toPreviousPrescription{};
     {
         std::vector<std::shared_ptr<FhirMedicationStatement>> medicationStatements{};
@@ -704,7 +709,15 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
                         pllId = identifier.GetValue();
                     }
                 }
+                if (createPll && pllId.empty()) {
+                    boost::uuids::uuid uuid = boost::uuids::random_generator()();
+                    pllId = to_string(uuid);
+                    auto identifiers = medicationStatement->GetIdentifiers();
+                    identifiers.emplace_back(FhirCodeableConcept("pll"), "official", pllId);
+                    medicationStatement->SetIdentifiers(identifiers);
+                }
                 PllCessation pllCessation{};
+                PllEntryData pllEntryData{};
                 for (const auto &extension: medicationStatement->GetExtensions()) {
                     auto url = extension->GetUrl();
                     std::transform(url.cbegin(), url.cend(), url.begin(), [] (char ch) { return std::tolower(ch); });
@@ -829,10 +842,21 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
                             }
                             pllCessation.reason.setDisplay(note);
                         }
+                    } else if (url == "effectivedatetime") {
+                        auto valueExtension = std::dynamic_pointer_cast<FhirValueExtension>(extension);
+                        if (valueExtension) {
+                            auto value = std::dynamic_pointer_cast<FhirDateValue>(valueExtension->GetValue());
+                            if (value) {
+                                pllEntryData.effectiveDate = value->GetRawValue();
+                            }
+                        }
                     }
                 }
-                if (!pllId.empty() && !pllCessation.timeDate.empty()) {
-                    potentialPllCessations.insert_or_assign(pllId, pllCessation);
+                if (!pllId.empty()) {
+                    if (!pllCessation.timeDate.empty()) {
+                        potentialPllCessations.insert_or_assign(pllId, pllCessation);
+                    }
+                    pllEntryDataMap.insert_or_assign(pllId, pllEntryData);
                 }
                 if (createeresept) {
                     ++medicationStatementIterator;
@@ -947,6 +971,11 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
                             prescription->SetCessationTime(maybeCeased->second.timeDate);
                             prescriptionStorage.Replace(patientId, fileId, *prescription);
                         }
+                        auto maybePllData = pllEntryDataMap.find(pllId);
+                        if (maybePllData != pllEntryDataMap.end()) {
+                            prescription->SetTreatmentStartedTimestamp(maybePllData->second.effectiveDate);
+                            prescriptionStorage.Replace(patientId, fileId, *prescription);
+                        }
                     }
                 }
             }
@@ -994,6 +1023,11 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
                     boost::uuids::uuid uuid = boost::uuids::random_generator()();
                     std::string uuid_string = to_string(uuid);
                     prescription.SetPllId(uuid_string);
+                } else {
+                    auto maybePllData = pllEntryDataMap.find(prescription.GetPllId());
+                    if (maybePllData != pllEntryDataMap.end()) {
+                        prescription.SetTreatmentStartedTimestamp(maybePllData->second.effectiveDate);
+                    }
                 }
             } else {
                 prescription.SetPllId("");

@@ -325,10 +325,10 @@ public:
         this->prescribedBy = prescribedBy;
     }
     [[nodiscard]] std::string GetTreatmentStartedTimestamp() const {
-        return prescribedTimestamp;
+        return treatmentStartedTimestamp;
     }
     void SetTreatmentStartedTimestamp(const std::string &prescribedTimestamp) {
-        this->prescribedTimestamp = prescribedTimestamp;
+        this->treatmentStartedTimestamp = prescribedTimestamp;
     }
     [[nodiscard]] std::string GetPatient() const {
         return patient;
