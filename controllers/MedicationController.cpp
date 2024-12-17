@@ -535,6 +535,7 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
     std::map<std::string,PllCessation> potentialPllCessations{};
     std::map<std::string,PllEntryData> pllEntryDataMap{};
     std::map<std::string,std::string> toPreviousPrescription{};
+    std::map<std::string,std::string> pllToPrescriptionIdMap{};
     {
         std::vector<std::shared_ptr<FhirMedicationStatement>> medicationStatements{};
         std::map<std::string,std::shared_ptr<FhirBasic>> fhirBasics{};
@@ -715,6 +716,9 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
                     auto identifiers = medicationStatement->GetIdentifiers();
                     identifiers.emplace_back(FhirCodeableConcept("pll"), "official", pllId);
                     medicationStatement->SetIdentifiers(identifiers);
+                }
+                if (createPll && !prescriptionId.empty() && !pllId.empty()) {
+                    pllToPrescriptionIdMap.insert_or_assign(pllId, prescriptionId);
                 }
                 PllCessation pllCessation{};
                 PllEntryData pllEntryData{};
@@ -918,6 +922,7 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
         PrescriptionStorage prescriptionStorage{};
         auto list = prescriptionStorage.LoadPatientMap(patientId);
         std::map<std::string,std::shared_ptr<Prescription>> filePrescriptionMap{};
+        std::vector<std::string> clearPllIdForMove{};
         for (const auto &fileId : list) {
             auto prescription = std::make_shared<Prescription>(prescriptionStorage.Load(patientId, fileId));
             filePrescriptionMap.insert_or_assign(fileId, prescription);
@@ -930,10 +935,18 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
                 }
                 auto prevPresIdIter = toPreviousPrescription.find(id);
             }
-            if (createPll && !prescriptionId.empty() && !pllId.empty() &&
-                std::find(ePrescriptionIds.cbegin(), ePrescriptionIds.cend(), prescriptionId) != ePrescriptionIds.cend() &&
-                std::find(injectedPllIds.cbegin(), injectedPllIds.cend(), pllId) != injectedPllIds.cend()) {
-                return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Existing and kept PLL ID reused on a new prescription", "Fatal")));
+            if (createPll && !prescriptionId.empty() && !pllId.empty()) {
+                if (std::find(ePrescriptionIds.cbegin(), ePrescriptionIds.cend(), prescriptionId) != ePrescriptionIds.cend() &&
+                    std::find(injectedPllIds.cbegin(), injectedPllIds.cend(), pllId) != injectedPllIds.cend()) {
+                    return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Existing and kept PLL ID reused on a new prescription", "Fatal")));
+                }
+                auto iterator = pllToPrescriptionIdMap.find(pllId);
+                if (iterator != pllToPrescriptionIdMap.end() && iterator->second != prescriptionId) {
+                    clearPllIdForMove.emplace_back(pllId);
+                    if (prescription->GetRfStatus().getCode() == "E") {
+                        return CreateOperationOutcome(CreateIssues(CreateIssue("X", "PLL is already containing a prescription with rfstatus E", "Fatal")));
+                    }
+                }
             }
             if (potentialRecalls.find(prescriptionId) != potentialRecalls.end()) {
                 auto rfStatus = prescription->GetRfStatus().getCode();
@@ -964,6 +977,9 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
                     if (std::find(injectedPllIds.cbegin(), injectedPllIds.cend(), pllId) != injectedPllIds.cend()) {
                         prescription->SetPllId("");
                         prescriptionStorage.Replace(patientId, fileId, *prescription);
+                    } else if (std::find(clearPllIdForMove.cbegin(), clearPllIdForMove.cend(), pllId) != clearPllIdForMove.cend()) {
+                        prescription->SetPllId("");
+                        prescriptionStorage.Replace(patientId, fileId, *prescription);
                     } else if (prescription->GetCessationTime().empty()) {
                         auto maybeCeased = potentialPllCessations.find(pllId);
                         if (maybeCeased != potentialPllCessations.end()) {
@@ -984,11 +1000,19 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
             auto fileId = filePrescriptionMapping.first;
             auto prescription = filePrescriptionMapping.second;
             auto prescriptionId = prescription->GetId();
-            if (createPll && prescription->GetPllId().empty() && std::find(ePrescriptionIds.cbegin(), ePrescriptionIds.cend(), prescriptionId) != ePrescriptionIds.cend()) {
-                boost::uuids::uuid uuid = boost::uuids::random_generator()();
-                std::string uuid_string = to_string(uuid);
-                prescription->SetPllId(uuid_string);
-                prescriptionStorage.Replace(patientId, fileId, *prescription);
+            if (createPll && prescription->GetPllId().empty()) {
+                auto mapping = std::find_if(pllToPrescriptionIdMap.cbegin(), pllToPrescriptionIdMap.cend(), [prescriptionId] (auto mapping) { return mapping.second == prescriptionId; });
+                if (mapping != pllToPrescriptionIdMap.cend()) {
+                    prescription->SetPllId(mapping->first);
+                    prescriptionStorage.Replace(patientId, fileId, *prescription);
+                }
+                if (std::find(ePrescriptionIds.cbegin(), ePrescriptionIds.cend(), prescriptionId) !=
+                    ePrescriptionIds.cend()) {
+                    boost::uuids::uuid uuid = boost::uuids::random_generator()();
+                    std::string uuid_string = to_string(uuid);
+                    prescription->SetPllId(uuid_string);
+                    prescriptionStorage.Replace(patientId, fileId, *prescription);
+                }
             }
             auto iterator = potentialRecalls.begin();
             while (iterator != potentialRecalls.end()) {
