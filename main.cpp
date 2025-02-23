@@ -192,7 +192,7 @@ int main() {
                     auto json = jsonTask.get();
                     std::shared_ptr<FhirPerson> patient;
                     {
-                        FhirParameters inputParameterBundle = FhirParameters::Parse(json);
+                        FhirParameters inputParameterBundle = FhirParameters::ParseJson(json.serialize());
                         for (const auto &inputParameter : inputParameterBundle.GetParameters()) {
                             if (inputParameter.GetName() != "patient") {
                                 web::http::http_response response(web::http::status_codes::BadRequest);
@@ -212,8 +212,7 @@ int main() {
                     auto outputParameters = medicationController->GetMedication(uri, practitionerPerson, *patient);
                     web::http::http_response response(web::http::status_codes::OK);
                     {
-                        auto json = outputParameters.ToJson();
-                        auto jsonString = json.serialize();
+                        auto jsonString = outputParameters.ToJson();
                         response.set_body(jsonString, "application/fhir+json; charset=utf-8");
                     }
                     return response;
@@ -237,7 +236,7 @@ int main() {
                     auto json = jsonTask.get();
                     std::shared_ptr<FhirBundle> bundle;
                     {
-                        FhirParameters inputParameterBundle = FhirParameters::Parse(json);
+                        FhirParameters inputParameterBundle = FhirParameters::ParseJson(json.serialize());
                         for (const auto &inputParameter : inputParameterBundle.GetParameters()) {
                             if (inputParameter.GetName() != "medication") {
                                 web::http::http_response response(web::http::status_codes::BadRequest);
@@ -257,8 +256,7 @@ int main() {
                     auto outputParameters = medicationController->SendMedication(*bundle);
                     web::http::http_response response(web::http::status_codes::OK);
                     {
-                        auto json = outputParameters->ToJson();
-                        auto jsonString = json.serialize();
+                        auto jsonString = outputParameters->ToJson();
                         response.set_body(jsonString, "application/fhir+json; charset=utf-8");
                     }
                     return response;
