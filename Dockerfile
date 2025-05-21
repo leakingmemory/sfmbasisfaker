@@ -78,3 +78,7 @@ COPY --from=passwd /etc/group /etc/group
 COPY --from=passwd /etc/shadow /etc/shadow
 COPY --from=passwd /home/sfmbasisfaker /home/sfmbasisfaker
 USER sfmbasisfaker
+EXPOSE 8080
+VOLUME /home/sfmbasisfaker
+ENTRYPOINT [ "/usr/local/bin/sfmbasisfaker" ]
+CMD [ "/usr/local/bin/sfmbasisfaker" ]
