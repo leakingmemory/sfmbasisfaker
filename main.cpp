@@ -6,6 +6,7 @@
 #include <jjwtid/Jwt.h>
 #include "domain/person.h"
 #include "service/PersonStorage.h"
+#include "webserver/CorsFilter.h"
 
 
 static bool keep_alive = true;
@@ -155,7 +156,9 @@ int main() {
             listen = "http://0.0.0.0:8080";
         }
 
-        WebServer webServer(listen);
+        WebServer webServerInstance(listen);
+
+        auto &webServer = webServerInstance | CorsFilter(allowedOriginHosts);
 
         webServer / "health" >> [] web_handler (web::http::http_request &) {
             return handle_web ([] async_web {
