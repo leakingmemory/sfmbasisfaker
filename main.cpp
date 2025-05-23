@@ -284,6 +284,7 @@ int main() {
             });
         };
         webServer / "patient" / "$sendMedication" >> [medicationController] web_handler (const web::http::http_request &req) {
+            const auto &headers = req.headers();
             auto contentType = req.headers().content_type();
             if (!contentType.starts_with("application/fhir+json") && !contentType.starts_with("application/json")) {
                 std::cerr << "$sendMedication: wrong content type in request: " << contentType << "\n";
@@ -292,7 +293,17 @@ int main() {
                     return response;
                 });
             }
-            return req.extract_json(true).then([medicationController] (const pplx::task<web::json::value> &jsonTask) {
+
+            auto practitionerPerson = GetPersonFromAuthorization(headers);
+            if (practitionerPerson.GetFodselsnummer().empty() ||
+                practitionerPerson.GetHpr().empty()) {
+                return pplx::task<web::http::http_response>([] () {
+                    web::http::http_response response(web::http::status_codes::Unauthorized);
+                    return response;
+                });
+            }
+
+            return req.extract_json(true).then([medicationController, practitionerPerson] (const pplx::task<web::json::value> &jsonTask) {
                 try {
                     auto json = jsonTask.get();
                     std::shared_ptr<FhirBundle> bundle;
@@ -314,7 +325,7 @@ int main() {
                         web::http::http_response response(web::http::status_codes::BadRequest);
                         return response;
                     }
-                    auto outputParameters = medicationController->SendMedication(*bundle);
+                    auto outputParameters = medicationController->SendMedication(*bundle, practitionerPerson);
                     web::http::http_response response(web::http::status_codes::OK);
                     {
                         auto jsonString = outputParameters->ToJson();

@@ -1069,12 +1069,14 @@ FhirBundleEntry CreatePrescriptionService::CreateFhirMedicationStatement(const P
         {
             // TODO
             Code value{};
-            FhirCodeableConcept codeable{value.getSystem(), value.getCode(), value.getDisplay()};
-            if (codeable.IsSet()) {
-                reseptAmendment->AddExtension(std::make_shared<FhirValueExtension>(
-                        "reimbursementparagraph",
-                        std::make_shared<FhirCodeableConceptValue>(codeable)
-                ));
+            if (!value.getCode().empty()) {
+                FhirCodeableConcept codeable{value.getSystem(), value.getCode(), value.getDisplay()};
+                if (codeable.IsSet()) {
+                    reseptAmendment->AddExtension(std::make_shared<FhirValueExtension>(
+                            "reimbursementparagraph",
+                            std::make_shared<FhirCodeableConceptValue>(codeable)
+                    ));
+                }
             }
         }
         {

@@ -393,9 +393,9 @@ FhirParameters MedicationController::GetMedication(const std::string &selfUrl, c
         pllInfoSection.SetEmptyReason(
                 FhirCodeableConcept("http://terminology.hl7.org/CodeSystem/list-empty-reason", "unavailable",
                                     "Unavailable"));
-        pllInfoSection.SetTextXhtml("<xhtml:div xmlns:xhtml=\"http://www.w3.org/1999/xhtml\"></xhtml:div>");
     }
     pllInfoSection.SetTextStatus("generated");
+    pllInfoSection.SetTextXhtml("<xhtml:div xmlns:xhtml=\"http://www.w3.org/1999/xhtml\"></xhtml:div>");
     FhirCompositionSection allergiesSection{};
     allergiesSection.SetTitle("Allergies");
     allergiesSection.SetCode(FhirCodeableConcept("http://ehelse.no/fhir/CodeSystem/sfm-section-types", "sectionAllergies", "Section allergies"));
@@ -524,7 +524,7 @@ struct PllEntryData {
     std::string effectiveDate{};
 };
 
-std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bundle) {
+std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bundle, const Person &practitioner) {
     bool createPll{false};
     std::string patientId{};
     std::vector<std::string> ePrescriptionIds{};
@@ -887,6 +887,9 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
                 if (!pllId.empty()) {
                     injectedPllIds.emplace_back(pllId);
                 }
+            }
+            if (!practitioner.GetId().empty()) {
+                prescription.SetPrescribedBy(practitioner.GetId());
             }
             patientId = prescription.GetPatient();
             if (prescription.GetTypeOfPrescription().getCode() != "E") {

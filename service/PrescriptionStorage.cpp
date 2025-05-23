@@ -18,7 +18,7 @@ const char *StoreFileException::what() const noexcept {
     return "A file operation failed";
 }
 
-std::string PrescriptionStorage::Store(const std::string &patient, const Prescription &prescription) const {
+std::string PrescriptionStorage::Store(const std::string &patient, const Prescription &prescription) {
     if (patient.empty()) {
         return {};
     }
@@ -34,7 +34,7 @@ std::string PrescriptionStorage::Store(const std::string &patient, const Prescri
 }
 
 void PrescriptionStorage::Replace(const std::string &patient, const std::string &fileId,
-                                         const Prescription &prescription) const {
+                                         const Prescription &prescription) {
     if (patient.empty()) {
         throw StoreFileException();
     }
@@ -54,7 +54,7 @@ void PrescriptionStorage::Replace(const std::string &patient, const std::string 
     }
 }
 
-Prescription PrescriptionStorage::Load(const std::string &patient, const std::string &prescriptionId) const {
+Prescription PrescriptionStorage::Load(const std::string &patient, const std::string &prescriptionId) {
     if (patient.empty() || prescriptionId.empty()) {
         return {};
     }
@@ -83,7 +83,7 @@ void PrescriptionStorage::StorePatientMap(const std::string &patient, const std:
     dir.WriteFile("map.json", clob);
 }
 
-std::vector<std::string> PrescriptionStorage::LoadPatientMap(const std::string &patient) const {
+std::vector<std::string> PrescriptionStorage::LoadPatientMap(const std::string &patient) {
     if (patient.empty()) {
         return {};
     }

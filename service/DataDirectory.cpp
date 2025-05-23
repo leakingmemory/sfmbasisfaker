@@ -58,11 +58,10 @@ std::string DataDirectory::ReadFile(const std::string &filename) const {
     std::string str;
 
     t.seekg(0, std::ios::end);
-    str.reserve(t.tellg());
+    str.resize(t.tellg());
     t.seekg(0, std::ios::beg);
 
-    str.assign((std::istreambuf_iterator<char>(t)),
-               std::istreambuf_iterator<char>());
+    t.read(str.data(), str.size());
 
     t.close();
 
