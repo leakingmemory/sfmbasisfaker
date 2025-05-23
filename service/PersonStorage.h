@@ -6,6 +6,7 @@
 #define SFMBASISFAKER_PERSONSTORAGE_H
 
 #include <string>
+#include <vector>
 
 class Person;
 
@@ -17,6 +18,7 @@ private:
     void AddFnr(Person &person) const ;
     void AddHpr(Person &person) const ;
 public:
+    [[nodiscard]] std::vector<Person> GetPersons() const ;
     [[nodiscard]] Person GetByFodselsnummer(const std::string &) const ;
     [[nodiscard]] Person GetById(const std::string &) const ;
 };

@@ -67,6 +67,7 @@ template <typename... Args> class ByPathComp;
 
 template <typename... Args> class WebFilter {
 public:
+    virtual ~WebFilter() = default;
     virtual std::optional<pplx::task<web::http::http_response>> filter(std::function<std::optional<pplx::task<web::http::http_response>> (Args...)>, const std::vector<std::string> &path, const std::map<std::string,std::string> &query, Args...) = 0;
 };
 
@@ -95,6 +96,7 @@ public:
         for (std::shared_ptr<PathHandler<Args...>> handler : path_handlers) {
             if ((*handler).canTake(path)) {
                 canTake = true;
+                break;
             }
         }
         return canTake;
@@ -135,6 +137,10 @@ public:
 
     template <typename V> ParamComp<V, Args...> &operator / (const PathVariable<V> &pv) {
         return add_path_handler(ParamComp<V, Args...>());
+    }
+
+    template <typename SubFilter> FilterHandler<SubFilter,web::http::http_request &> &operator | (const SubFilter &filter) {
+        return *this / FilterHandler<SubFilter,web::http::http_request &>(filter);
     }
 
     template <typename V> QueryParamHandler<V, Args...> &operator & (const QueryParam<V> &param) {
@@ -303,15 +309,16 @@ public:
     }
 
     template <class V> V &operator / (const V &handler) {
-        add_path_handler(handler);
-        return reinterpret_cast<V&>(*(path_handlers.back()));
+        static_assert(std::is_base_of<PathHandler<Args...>, V>::value);
+        auto shptr = std::make_shared<V>(handler);
+        path_handlers.push_back(shptr);
+        return *shptr;
     }
     ByPathComp<Args...> &operator / (const std::string &pcomp) {
         for (auto handler : path_handlers) {
             std::optional<std::string> comp = (*handler).getPathComp();
             if (comp && comp.value() == pcomp) {
-                auto &ref = *handler;
-                return reinterpret_cast<ByPathComp<Args...>&>(ref);
+                return dynamic_cast<ByPathComp<Args...> &>(*handler);
             }
         }
         return *this / ByPathComp<Args...>(pcomp);
@@ -406,7 +413,7 @@ public:
 
     template <class V> V &operator / (const V &handler) {
         add_path_handler(handler);
-        return reinterpret_cast<V&>(*(path_handlers.back()));
+        return *(path_handlers.back());
     }
     ByPathComp<Args..., T> &operator / (const std::string &pcomp) {
         return *this / ByPathComp<Args..., T>(pcomp);
@@ -453,15 +460,16 @@ public:
     }
     template<class T> T &operator / (const T &handler) {
         static_assert(std::is_base_of<PathHandler<web::http::http_request &>,T>::value);
-        handlers.push_back(std::make_shared<T>(handler));
-        return reinterpret_cast<T &>(*(handlers.back()));
+        auto shptr = std::make_shared<T>(handler);
+        handlers.emplace_back(shptr);
+        return *shptr;
     }
     ByPathComp<web::http::http_request &> &operator / (const std::string &pcomp) {
         for (auto handler : handlers) {
             std::optional<std::string> comp = (*handler).getPathComp();
             if (comp && comp.value() == pcomp) {
                 auto &ref = *handler;
-                return reinterpret_cast<ByPathComp<web::http::http_request &>&>(ref);
+                return dynamic_cast<ByPathComp<web::http::http_request &>&>(ref);
             }
         }
         return *this / ByPathComp<web::http::http_request &>(pcomp);

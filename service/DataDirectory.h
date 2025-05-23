@@ -6,6 +6,7 @@
 #define DRWHATSNOT_DATADIRECTORY_H
 
 #include <string>
+#include <vector>
 
 class DataDirectory {
 private:
@@ -19,6 +20,7 @@ public:
     std::string FileName(const std::string &filename) const;
     std::string ReadFile(const std::string &filename) const;
     void WriteFile(const std::string &filename, const std::string &content) const;
+    std::vector<std::string> ListFiles() const;
 };
 
 

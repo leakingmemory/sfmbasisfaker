@@ -7,7 +7,51 @@
 #include "domain/person.h"
 #include "service/PersonStorage.h"
 #include "webserver/CorsFilter.h"
+#include "controllers/PharmacyController.h"
+#include "service/DataDirectory.h"
 
+template <typename... Args> class AccessLogFilter : public WebFilter<web::http::http_request &, Args...> {
+public:
+    std::optional<pplx::task<web::http::http_response>> filter(std::function<std::optional<pplx::task<web::http::http_response>> (web::http::http_request &, Args...)> next, const std::vector<std::string> &path, const std::map<std::string,std::string> &query, web::http::http_request &request, Args... args) override {
+        auto t = std::time(nullptr);
+        auto tm = *std::localtime(&t);
+        std::string uri = request.request_uri().to_string();
+        try {
+            auto nextTaskOpt = next(request, args...);
+            if (nextTaskOpt) {
+                auto &nextTask = *nextTaskOpt;
+                return nextTask.then([uri, tm] (const pplx::task<web::http::http_response> &task) {
+                    try {
+                        auto response = task.get();
+                        std::ofstream log{};
+                        log.open(DataDirectory::Data("sfmbasisfaker").FileName("access.log"), std::ios_base::app);
+                        log << std::put_time(&tm, "%d-%m-%Y %H:%M:%S") << " " << response.status_code() << " " << uri << "\n";
+                        log.close();
+                        return response;
+                    } catch (...) {
+                        std::ofstream log{};
+                        log.open(DataDirectory::Data("sfmbasisfaker").FileName("access.log"), std::ios_base::app);
+                        log << std::put_time(&tm, "%d-%m-%Y %H:%M:%S") << " " << "ASYNC-EXCEPTION " << uri << "\n";
+                        log.close();
+                        throw;
+                    }
+                });
+            } else {
+                std::ofstream log{};
+                log.open(DataDirectory::Data("sfmbasisfaker").FileName("access.log"), std::ios_base::app);
+                log << std::put_time(&tm, "%d-%m-%Y %H:%M:%S") << " " << "NORESP " << uri << "\n";
+                log.close();
+                return {};
+            }
+        } catch (...) {
+            std::ofstream log{};
+            log.open(DataDirectory::Data("sfmbasisfaker").FileName("access.log"), std::ios_base::app);
+            log << std::put_time(&tm, "%d-%m-%Y %H:%M:%S") << " " << "SYNC-EXCEPTION " << uri << "\n";
+            log.close();
+            throw;
+        }
+    }
+};
 
 static bool keep_alive = true;
 
@@ -126,6 +170,7 @@ Person GetPersonFromAuthorization(const web::http::http_headers &headers) {
 
 int main() {
     auto medicationController = std::make_shared<MedicationController>();
+    auto pharmacyController = std::make_shared<PharmacyController>();
 
     std::vector<std::string> allowedOriginHosts{};
     {
@@ -158,7 +203,7 @@ int main() {
 
         WebServer webServerInstance(listen);
 
-        auto &webServer = webServerInstance | CorsFilter(allowedOriginHosts);
+        auto &webServer = webServerInstance | AccessLogFilter() | CorsFilter(allowedOriginHosts);
 
         webServer / "health" >> [] web_handler (web::http::http_request &) {
             return handle_web ([] async_web {
@@ -169,11 +214,19 @@ int main() {
                     return response;
             });
         };
+        webServer / "metadata" >> [] web_handler (web::http::http_request &) {
+            return handle_web ([] async_web {
+                web::http::http_response response(web::http::status_codes::OK);
+                std::string json = "{\n  \"resourceType\": \"CapabilityStatement\",\n  \"url\": \"http://base-fhir.test5.forskrivning.no/metadata\",\n  \"version\": \"1.0.0.0\",\n  \"name\": \"SFM-Basis\",\n  \"title\": \"SFM-Basis Capability statement\",\n  \"status\": \"active\",\n  \"experimental\": false,\n  \"date\": \"2021-05-01\",\n  \"publisher\": \"Norsk Helsenett/SFM\",\n  \"kind\": \"capability\",\n  \"software\": {\n    \"name\": \"SFM Basis API\",\n    \"version\": \"4.10\"\n  },\n  \"fhirVersion\": \"4.0.0\",\n  \"format\": [\n    \"application/fhir+json\",\n    \"json\",\n    \"application/fhir+xml\",\n    \"xml\"\n  ],\n  \"patchFormat\": [\n    \"application/fhir+json\",\n    \"application/json-patch+json\"\n  ],\n  \"rest\": [\n    {\n      \"mode\": \"server\",\n      \"security\": {\n        \"extension\": [\n          {\n            \"extension\": [\n              {\n                \"url\": \"token\",\n                \"valueUri\": \"https://helseid-sts.test.nhn.no/connect/token\"\n              },\n              {\n                \"url\": \"authorize\",\n                \"valueUri\": \"https://helseid-sts.test.nhn.no/connect/authorize\"\n              }\n            ],\n            \"url\": \"http://fhir-registry.smarthealthit.org/StructureDefinition/oauth-uris\"\n          }\n        ],\n        \"service\": [\n          {\n            \"coding\": [\n              {\n                \"system\": \"http://terminology.hl7.org/CodeSystem/restful-security-service\",\n                \"code\": \"OAuth\"\n              }\n            ]\n          }\n        ]\n      },\n      \"resource\": [\n        {\n          \"type\": \"Practitioner\",\n          \"profile\": \"http://ehelse.no/fhir/StructureDefinition/sfm-Practitioner\",\n          \"interaction\": [\n            {\n              \"code\": \"create\"\n            },\n            {\n              \"code\": \"update\"\n            },\n            {\n              \"code\": \"read\"\n            }\n          ],\n          \"versioning\": \"versioned\",\n          \"readHistory\": false,\n          \"updateCreate\": false,\n          \"conditionalCreate\": false,\n          \"conditionalUpdate\": false,\n          \"conditionalDelete\": \"single\",\n          \"searchParam\": [\n            {\n              \"name\": \"identifier\",\n              \"type\": \"token\",\n              \"documentation\": \"A practitioner's Identifier\"\n            },\n            {\n              \"name\": \"given\",\n              \"type\": \"string\",\n              \"documentation\": \"A portion of the given name\"\n            },\n            {\n              \"name\": \"active\",\n              \"type\": \"string\",\n              \"documentation\": \"Is the Practitioner record active\"\n            },\n            {\n              \"name\": \"family\",\n              \"type\": \"string\",\n              \"documentation\": \"A portion of the family name\"\n            }\n          ]\n        },\n        {\n          \"type\": \"Organization\",\n          \"profile\": \"http://ehelse.no/fhir/StructureDefinition/sfm-Organization\",\n          \"interaction\": [\n            {\n              \"code\": \"create\"\n            },\n            {\n              \"code\": \"update\"\n            },\n            {\n              \"code\": \"read\"\n            }\n          ],\n          \"versioning\": \"versioned\",\n          \"readHistory\": false,\n          \"updateCreate\": false,\n          \"conditionalCreate\": false,\n          \"conditionalUpdate\": false,\n          \"conditionalDelete\": \"single\",\n          \"searchParam\": [\n            {\n              \"name\": \"identifier\",\n              \"type\": \"token\",\n              \"documentation\": \"Any identifier for the organization (not the accreditation issuer's identifier)\"\n            },\n            {\n              \"name\": \"partof\",\n              \"type\": \"reference\",\n              \"documentation\": \"An organization of which this organization forms a part\"\n            },\n            {\n              \"name\": \"active\",\n              \"type\": \"string\",\n              \"documentation\": \"Is the Organization record active\"\n            },\n            {\n              \"name\": \"name\",\n              \"type\": \"string\",\n              \"documentation\": \"A portion of the organization's name or alias\"\n            },\n            {\n              \"name\": \"_id\",\n              \"type\": \"token\",\n              \"documentation\": \"The ID of the resource\"\n            }\n          ]\n        },\n        {\n          \"type\": \"Person\",\n          \"profile\": \"http://ehelse.no/fhir/StructureDefinition/sfm-Person\",\n          \"interaction\": [\n            {\n              \"code\": \"create\"\n            },\n            {\n              \"code\": \"update\"\n            },\n            {\n              \"code\": \"read\"\n            }\n          ],\n          \"versioning\": \"versioned\",\n          \"readHistory\": false,\n          \"updateCreate\": false,\n          \"conditionalCreate\": false,\n          \"conditionalUpdate\": false,\n          \"conditionalDelete\": \"single\",\n          \"searchParam\": [\n            {\n              \"name\": \"identifier\",\n              \"type\": \"token\",\n              \"documentation\": \"A person Identifier\"\n            },\n            {\n              \"name\": \"name\",\n              \"type\": \"string\",\n              \"documentation\": \"A server defined search that may match any of the string fields in the HumanName, including family, give, prefix, suffix, suffix, and/or text\"\n            },\n            {\n              \"name\": \"_id\",\n              \"type\": \"token\",\n              \"documentation\": \"The ID of the resource\"\n            }\n          ]\n        },\n        {\n          \"type\": \"Task\",\n          \"profile\": \"http://ehelse.no/fhir/StructureDefinition/sfm-Task\",\n          \"versioning\": \"versioned\",\n          \"readHistory\": false,\n          \"updateCreate\": false,\n          \"conditionalCreate\": false,\n          \"conditionalUpdate\": false,\n          \"conditionalDelete\": \"single\",\n          \"searchParam\": [\n            {\n              \"name\": \"owner\",\n              \"type\": \"reference\",\n              \"documentation\": \"Search by task owner\"\n            },\n            {\n              \"name\": \"code\",\n              \"type\": \"token\",\n              \"documentation\": \"Search by task code\"\n            },\n            {\n              \"name\": \"patientNiN\",\n              \"type\": \"string\",\n              \"documentation\": \"List of patient identifiers\"\n            },\n            {\n              \"name\": \"_lastUpdated\",\n              \"type\": \"date\",\n              \"documentation\": \"Time base for changes\"\n            }\n          ]\n        }\n      ],\n      \"operation\": [\n        {\n          \"name\": \"anonymized-export\",\n          \"definition\": \"http://base-fhir.test5.forskrivning.no/OperationDefinition/anonymized-export\"\n        },\n        {\n          \"name\": \"member-match\",\n          \"definition\": \"http://base-fhir.test5.forskrivning.no/OperationDefinition/member-match\"\n        },\n        {\n          \"name\": \"patient-everything\",\n          \"definition\": \"https://www.hl7.org/fhir/patient-operation-everything.html\"\n        },\n        {\n          \"name\": \"getMedication\",\n          \"definition\": \"http://nhn.no/sfm/fhir/OperationDefinition/SFM-getMedication\"\n        },\n        {\n          \"name\": \"sendMedication\",\n          \"definition\": \"http://nhn.no/sfm/fhir/OperationDefinition/SFM-sendMedication\"\n        },\n        {\n          \"name\": \"registerResponsibility\",\n          \"definition\": \"http://nhn.no/sfm/fhir/OperationDefinition/SFM-registerResponsibility\"\n        },\n        {\n          \"name\": \"deRegisterResponsibility\",\n          \"definition\": \"http://nhn.no/sfm/fhir/OperationDefinition/SFM-deRegisterResponsibility\"\n        },\n        {\n          \"name\": \"validate\",\n          \"definition\": \"http://hl7.org/fhir/OperationDefinition/Resource-validate\"\n        }\n      ]\n    }\n  ]\n}";
+                response.set_body(json, "application/fhir+json");
+                return response;
+            });
+        };
         webServer / "patient" / "$getMedication" >> [medicationController] web_handler (const web::http::http_request &req) {
             std::string uri = req.request_uri().to_string();
             const auto &headers = req.headers();
             auto contentType = headers.content_type();
-            if (!contentType.starts_with("application/fhir+json")) {
+            if (!contentType.starts_with("application/fhir+json") && !contentType.starts_with("application/json")) {
                 std::cerr << "$getMedication: wrong content type in request: " << contentType << "\n";
                 return pplx::task<web::http::http_response>([] () {
                     web::http::http_response response(web::http::status_codes::BadRequest);
@@ -196,19 +249,19 @@ int main() {
                     std::shared_ptr<FhirPerson> patient;
                     {
                         FhirParameters inputParameterBundle = FhirParameters::ParseJson(json.serialize());
-                        for (const auto &inputParameter : inputParameterBundle.GetParameters()) {
-                            if (inputParameter.GetName() != "patient") {
-                                web::http::http_response response(web::http::status_codes::BadRequest);
-                                return response;
-                            }
-                            patient = std::dynamic_pointer_cast<FhirPerson>(inputParameter.GetResource());
-                            if (!patient) {
-                                web::http::http_response response(web::http::status_codes::BadRequest);
-                                return response;
+                        for (const auto &inputParameter: inputParameterBundle.GetParameters()) {
+                            if (inputParameter.GetName() == "patient") {
+                                patient = std::dynamic_pointer_cast<FhirPerson>(inputParameter.GetResource());
+                                if (!patient) {
+                                    std::cerr << "$getMedication: Invalid patient, not a person object\n";
+                                    web::http::http_response response(web::http::status_codes::BadRequest);
+                                    return response;
+                                }
                             }
                         }
                     }
                     if (!patient) {
+                        std::cerr << "$getMedication: No patient in the request\n";
                         web::http::http_response response(web::http::status_codes::BadRequest);
                         return response;
                     }
@@ -219,7 +272,12 @@ int main() {
                         response.set_body(jsonString, "application/fhir+json; charset=utf-8");
                     }
                     return response;
+                } catch (const std::exception &e) {
+                    std::cerr << "$getMedication: std::exception: " << e.what() << "\n";
+                    web::http::http_response response(web::http::status_codes::InternalError);
+                    return response;
                 } catch (...) {
+                    std::cerr << "$getMedication: unknown exception\n";
                     web::http::http_response response(web::http::status_codes::InternalError);
                     return response;
                 }
@@ -227,8 +285,8 @@ int main() {
         };
         webServer / "patient" / "$sendMedication" >> [medicationController] web_handler (const web::http::http_request &req) {
             auto contentType = req.headers().content_type();
-            if (!contentType.starts_with("application/fhir+json")) {
-                std::cerr << "$getMedication: wrong content type in request: " << contentType << "\n";
+            if (!contentType.starts_with("application/fhir+json") && !contentType.starts_with("application/json")) {
+                std::cerr << "$sendMedication: wrong content type in request: " << contentType << "\n";
                 return pplx::task<web::http::http_response>([] () {
                     web::http::http_response response(web::http::status_codes::BadRequest);
                     return response;
@@ -267,6 +325,24 @@ int main() {
                     web::http::http_response response(web::http::status_codes::InternalError);
                     return response;
                 }
+            });
+        };
+        webServer / "pharmacy" / "patients" >> [pharmacyController] web_handler (const web::http::http_request &) {
+            return handle_web ( [pharmacyController] async_web {
+                auto patients = pharmacyController->GetPatients();
+                auto json = web::json::value::array();
+                int i = 0;
+                for (const auto patient: patients) {
+                    auto pat = web::json::value::object();
+                    pat["id"] = web::json::value::string(patient.id);
+                    json[i++] = pat;
+                }
+                web::http::http_response response(web::http::status_codes::OK);
+                {
+                    auto jsonString = json.serialize();
+                    response.set_body(jsonString, "application/fhir+json; charset=utf-8");
+                }
+                return response;
             });
         };
 

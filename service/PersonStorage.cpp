@@ -118,6 +118,35 @@ void PersonStorage::AddHpr(Person &person) const {
     }
 }
 
+std::vector<Person> PersonStorage::GetPersons() const {
+    std::vector<Person> persons{};
+    auto personsDir = DataDirectory::Data("sfmbasisfaker").Sub("person");
+    for (const auto &filename : personsDir.ListFiles()) {
+        auto personBlob = personsDir.ReadFile(filename);
+        try {
+            auto data = web::json::value::parse(personBlob);
+            if (data.has_string_field("family") &&
+                    data.has_string_field("given") &&
+                    data.has_string_field("gender") &&
+                    data.has_string_field("dob") &&
+                    data.has_string_field("postcode") &&
+                    data.has_string_field("city")) {
+                Person person{};
+                person.SetId(filename);
+                person.SetFamilyName(data.at("family").as_string());
+                person.SetGivenName(data.at("given").as_string());
+                person.SetGender(data.at("gender").as_string() == "female" ? PersonGender::FEMALE : PersonGender::MALE);
+                person.SetDateOfBirth(data.at("dob").as_string());
+                person.SetHomePostalCode(data.at("postcode").as_string());
+                person.SetHomeCity(data.at("city").as_string());
+                persons.emplace_back(person);
+            }
+        } catch (...) {
+        }
+    }
+    return persons;
+}
+
 Person PersonStorage::GetByFodselsnummer(const std::string &fodselsnummer) const {
     Person person{};
     {

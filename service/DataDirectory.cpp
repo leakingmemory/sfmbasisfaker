@@ -84,3 +84,14 @@ void DataDirectory::WriteFile(const std::string &filename, const std::string &co
 
     std::filesystem::rename(tmpfilename, fpath);
 }
+
+std::vector<std::string> DataDirectory::ListFiles() const {
+    std::vector<std::string> filenames{};
+    std::filesystem::path path = this->path;
+    for (const auto &entry : std::filesystem::directory_iterator(path)) {
+        if (entry.is_regular_file()) {
+            filenames.emplace_back(entry.path().filename());
+        }
+    }
+    return filenames;
+}
