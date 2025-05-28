@@ -404,6 +404,14 @@ private:
     std::string prescribedByHpr;
     std::string prescribedByGivenName;
     std::string prescribedByFamilyName;
+    /* */
+    std::string dispatcherHerId;
+    std::string dispatcherName;
+    /* */
+    bool substitutionReservationCustomer;
+    std::string dispatchMsgId;
+    double quantity;
+    std::string whenHandedOver;
 public:
     [[nodiscard]] std::string GetId() const {
         return id;
@@ -515,6 +523,43 @@ public:
 
     void SetPrescribedByFamilyName(const std::string &prescribedByFamilyName) {
         this->prescribedByFamilyName = prescribedByFamilyName;
+    }
+
+    [[nodiscard]] std::string GetDispatcherHerId() const {
+        return dispatcherHerId;
+    }
+    void SetDispatcherHerId(const std::string &dispatcherHerId) {
+        this->dispatcherHerId = dispatcherHerId;
+    }
+    [[nodiscard]] std::string GetDispatcherName() const {
+        return dispatcherName;
+    }
+    void SetDispatcherName(const std::string &dispatcherName) {
+        this->dispatcherName = dispatcherName;
+    }
+    bool IsSubstitutionReservationCustomer() const {
+        return substitutionReservationCustomer;
+    }
+    void SetSubstitutionReservationCustomer(bool substitutionReservationCustomer) {
+        this->substitutionReservationCustomer = substitutionReservationCustomer;
+    }
+    [[nodiscard]] std::string GetDispatchMsgId() const {
+        return dispatchMsgId;
+    }
+    void SetDispatchMsgId(const std::string &dispatchMsgId) {
+        this->dispatchMsgId = dispatchMsgId;
+    }
+    double GetQuantity() const {
+        return quantity;
+    }
+    void SetQuantity(double quantity) {
+        this->quantity = quantity;
+    }
+    [[nodiscard]] std::string GetWhenHandedOver() const {
+        return whenHandedOver;
+    }
+    void SetWhenHandedOver(const std::string &whenHandedOver) {
+        this->whenHandedOver = whenHandedOver;
     }
 
     virtual std::string Serialize() const;

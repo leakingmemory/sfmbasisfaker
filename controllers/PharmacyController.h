@@ -45,6 +45,14 @@ struct PaperDispatchData {
     std::string prescribedByHpr;
     std::string prescribedByGivenName;
     std::string prescribedByFamilyName;
+    /* */
+    std::string dispatcherHerId;
+    std::string dispatcherName;
+    /* */
+    bool substitutionReservationCustomer;
+    std::string dispatchMsgId;
+    double quantity;
+    std::string whenHandedOver;
 };
 
 class PharmacyController {

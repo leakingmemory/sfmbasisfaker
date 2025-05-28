@@ -292,6 +292,12 @@ std::string PaperDispatch::Serialize() const {
     obj["prescribedByHpr"] = web::json::value::string(prescribedByHpr);
     obj["prescribedByGivenName"] = web::json::value::string(prescribedByGivenName);
     obj["prescribedByFamilyName"] = web::json::value::string(prescribedByFamilyName);
+    obj["dispatcherHerId"] = web::json::value::string(dispatcherHerId);
+    obj["dispatcherName"] = web::json::value::string(dispatcherName);
+    obj["substitutionReservationCustomer"] = web::json::value::boolean(substitutionReservationCustomer);
+    obj["dispatchMsgId"] = web::json::value::string(dispatchMsgId);
+    obj["quantity"] = web::json::value::number(quantity);
+    obj["whenHandedOver"] = web::json::value::string(whenHandedOver);
     return obj.serialize();
 }
 
@@ -339,6 +345,24 @@ PaperDispatch PaperDispatch::Parse(const std::string &json) {
     }
     if (obj.has_string_field("prescribedByFamilyName")) {
         paperDispatch.prescribedByFamilyName = obj.at("prescribedByFamilyName").as_string();
+    }
+    if (obj.has_string_field("dispatcherHerId")) {
+        paperDispatch.dispatcherHerId = obj.at("dispatcherHerId").as_string();
+    }
+    if (obj.has_string_field("dispatcherName")) {
+        paperDispatch.dispatcherName = obj.at("dispatcherName").as_string();
+    }
+    if (obj.has_boolean_field("substitutionReservationCustomer")) {
+        paperDispatch.substitutionReservationCustomer = obj.at("substitutionReservationCustomer").as_bool();
+    }
+    if (obj.has_string_field("dispatchMsgId")) {
+        paperDispatch.dispatchMsgId = obj.at("dispatchMsgId").as_string();
+    }
+    if (obj.has_number_field("quantity")) {
+        paperDispatch.quantity = obj.at("quantity").as_double();
+    }
+    if (obj.has_string_field("whenHandedOver")) {
+        paperDispatch.whenHandedOver = obj.at("whenHandedOver").as_string();
     }
     return paperDispatch;
 }

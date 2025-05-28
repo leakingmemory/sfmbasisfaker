@@ -427,6 +427,19 @@ int main() {
                                 if (json.has_string_field("prescribedByFamilyName"))
                                     paperDispatchData.prescribedByFamilyName = json.at(
                                             "prescribedByFamilyName").as_string();
+                                if (json.has_string_field("dispatcherHerId"))
+                                    paperDispatchData.dispatcherHerId = json.at("dispatcherHerId").as_string();
+                                if (json.has_string_field("dispatcherName"))
+                                    paperDispatchData.dispatcherName = json.at("dispatcherName").as_string();
+                                if (json.has_boolean_field("substitutionReservationCustomer"))
+                                    paperDispatchData.substitutionReservationCustomer = json.at(
+                                            "substitutionReservationCustomer").as_bool();
+                                if (json.has_string_field("dispatchMsgId"))
+                                    paperDispatchData.dispatchMsgId = json.at("dispatchMsgId").as_string();
+                                if (json.has_number_field("quantity"))
+                                    paperDispatchData.quantity = json.at("quantity").as_double();
+                                if (json.has_string_field("whenHandedOver"))
+                                    paperDispatchData.whenHandedOver = json.at("whenHandedOver").as_string();
                                 pharmacyController->PaperDispense(patientId, paperDispatchData);
                                 web::http::http_response response(web::http::status_codes::OK);
                                 return response;

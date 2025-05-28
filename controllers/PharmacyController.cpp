@@ -81,6 +81,12 @@ void PharmacyController::PaperDispense(const std::string &patientId, const Paper
     paperDispatch.SetPrescribedByHpr(paperDispatchData.prescribedByHpr);
     paperDispatch.SetPrescribedByGivenName(paperDispatchData.prescribedByGivenName);
     paperDispatch.SetPrescribedByFamilyName(paperDispatchData.prescribedByFamilyName);
+    paperDispatch.SetDispatcherHerId(paperDispatchData.dispatcherHerId);
+    paperDispatch.SetDispatcherName(paperDispatchData.dispatcherName);
+    paperDispatch.SetSubstitutionReservationCustomer(paperDispatchData.substitutionReservationCustomer);
+    paperDispatch.SetDispatchMsgId(paperDispatchData.dispatchMsgId);
+    paperDispatch.SetQuantity(paperDispatchData.quantity);
+    paperDispatch.SetWhenHandedOver(paperDispatchData.whenHandedOver);
 
     auto paperDispatchMap = PrescriptionStorage::LoadPaperDispatchMap(patientId);
     auto id = PrescriptionStorage::Store(patientId, paperDispatch);
