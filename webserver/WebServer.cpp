@@ -12,6 +12,9 @@ template <> std::optional<std::string> handle_path_comp<std::string>(const std::
 WebServer::WebServer(const char *listen_to) :
         listener(listen_to)
 {
+    listener.support(web::http::methods::OPTIONS, [this] (web::http::http_request request) {
+        this->handle_request(request);
+    });
     listener.support([this] (web::http::http_request request) {
         this->handle_request(request);
     });

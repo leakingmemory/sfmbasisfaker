@@ -33,6 +33,21 @@ std::string PrescriptionStorage::Store(const std::string &patient, const Prescri
     return clobId;
 }
 
+std::string PrescriptionStorage::Store(const std::string &patient, const PaperDispatch &paperDispatch) {
+    if (patient.empty()) {
+        return {};
+    }
+    auto dir = DataDirectory::Data("sfmbasisfaker").Sub("paperdispatch").Sub(patient);
+    std::string clobId{};
+    {
+        boost::uuids::random_generator generator;
+        boost::uuids::uuid randomUUID = generator();
+        clobId = boost::uuids::to_string(randomUUID);
+    }
+    dir.WriteFile(clobId, paperDispatch.Serialize());
+    return clobId;
+}
+
 void PrescriptionStorage::Replace(const std::string &patient, const std::string &fileId,
                                          const Prescription &prescription) {
     if (patient.empty()) {
@@ -66,6 +81,18 @@ Prescription PrescriptionStorage::Load(const std::string &patient, const std::st
     return Prescription::Parse(json);
 }
 
+PaperDispatch PrescriptionStorage::LoadPaperDispatch(const std::string &patient, const std::string &prescriptionId) {
+    if (patient.empty() || prescriptionId.empty()) {
+        return {};
+    }
+    auto dir = DataDirectory::Data("sfmbasisfaker").Sub("paperdispatch").Sub(patient);
+    auto json = dir.ReadFile(prescriptionId);
+    if (json.empty()) {
+        return {};
+    }
+    return PaperDispatch::Parse(json);
+}
+
 void PrescriptionStorage::StorePatientMap(const std::string &patient, const std::vector<std::string> &prescriptions) {
     if (patient.empty()) {
         return;
@@ -88,6 +115,40 @@ std::vector<std::string> PrescriptionStorage::LoadPatientMap(const std::string &
         return {};
     }
     auto dir = DataDirectory::Data("sfmbasisfaker").Sub("prescription").Sub(patient);
+    auto clob = dir.ReadFile("map.json");
+    if (clob.empty()) {
+        return {};
+    }
+    auto arr = web::json::value::parse(clob).as_array();
+    std::vector<std::string> prescriptions;
+    for (const auto &val: arr) {
+        prescriptions.push_back(val.as_string());
+    }
+    return prescriptions;
+}
+
+void PrescriptionStorage::StorePaperDispatchMap(const std::string &patient, const std::vector<std::string> &prescriptions) {
+    if (patient.empty()) {
+        return;
+    }
+    std::string clob{};
+    {
+        auto arr = web::json::value::array();
+        int i = 0;
+        for (const auto &p: prescriptions) {
+            arr[i++] = web::json::value::string(p);
+        }
+        clob = arr.serialize();
+    }
+    auto dir = DataDirectory::Data("sfmbasisfaker").Sub("paperdispatch").Sub(patient);
+    dir.WriteFile("map.json", clob);
+}
+
+std::vector<std::string> PrescriptionStorage::LoadPaperDispatchMap(const std::string &patient) {
+    if (patient.empty()) {
+        return {};
+    }
+    auto dir = DataDirectory::Data("sfmbasisfaker").Sub("paperdispatch").Sub(patient);
     auto clob = dir.ReadFile("map.json");
     if (clob.empty()) {
         return {};

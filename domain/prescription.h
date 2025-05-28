@@ -21,6 +21,9 @@ private:
     Code form;
     std::string atc;
     std::string atcDisplay;
+    std::optional<double> amount;
+    std::string amountUnit;
+    std::string amountText;
 public:
     Medication(const Code &code) : code(code) {}
     virtual ~Medication() = default;
@@ -48,6 +51,25 @@ public:
     void SetAtc(const std::string &code, const std::string &display) {
         atc = code;
         atcDisplay = display;
+    }
+
+    [[nodiscard]] std::optional<double> GetAmount() const {
+        return amount;
+    }
+    void SetAmount(std::optional<double> amount) {
+        this->amount = amount;
+    }
+    [[nodiscard]] std::string GetAmountUnit() const {
+        return amountUnit;
+    }
+    void SetAmountUnit(const std::string &amountUnit) {
+        this->amountUnit = amountUnit;
+    }
+    [[nodiscard]] std::string GetAmountText() const {
+        return amountText;
+    }
+    void SetAmountText(const std::string &amountText) {
+        this->amountText = amountText;
     }
 
     virtual web::json::value Serialize() const;
@@ -363,6 +385,140 @@ public:
 
     std::string Serialize() const;
     static Prescription Parse(const std::string &json);
+};
+
+class PaperDispatch {
+private:
+    std::string id{};
+    std::shared_ptr<Medication> medication{};
+    std::string dssn;
+    std::optional<double> numberOfPackages;
+    std::string reit;
+    std::string itemGroupCode;
+    std::string itemGroupDisplay;
+    std::string prescriptionTypeCode;
+    std::string prescriptionTypeDisplay;
+    std::string prescriptionId;
+    bool genericSubstitutionAccepted;
+    /* */
+    std::string prescribedByHpr;
+    std::string prescribedByGivenName;
+    std::string prescribedByFamilyName;
+public:
+    [[nodiscard]] std::string GetId() const {
+        return id;
+    }
+
+    void SetId(const std::string &id) {
+        this->id = id;
+    }
+
+    [[nodiscard]] std::shared_ptr<Medication> GetMedication() const {
+        return medication;
+    }
+
+    void SetMedication(const std::shared_ptr<Medication> &medication) {
+        this->medication = medication;
+    }
+
+    [[nodiscard]] std::string GetDssn() const {
+        return dssn;
+    }
+
+    void SetDssn(const std::string &dssn) {
+        this->dssn = dssn;
+    }
+
+    [[nodiscard]] std::optional<double> GetNumberOfPackages() const {
+        return numberOfPackages;
+    }
+
+    void SetNumberOfPackages(const std::optional<double> &numberOfPackages) {
+        this->numberOfPackages = numberOfPackages;
+    }
+
+    [[nodiscard]] std::string GetReit() const {
+        return reit;
+    }
+
+    void SetReit(const std::string &reit) {
+        this->reit = reit;
+    }
+
+    [[nodiscard]] std::string GetItemGroupCode() const {
+        return itemGroupCode;
+    }
+
+    void SetItemGroupCode(const std::string &itemGroupCode) {
+        this->itemGroupCode = itemGroupCode;
+    }
+
+    [[nodiscard]] std::string GetItemGroupDisplay() const {
+        return itemGroupDisplay;
+    }
+
+    void SetItemGroupDisplay(const std::string &itemGroupDisplay) {
+        this->itemGroupDisplay = itemGroupDisplay;
+    }
+
+    [[nodiscard]] std::string GetPrescriptionTypeCode() const {
+        return prescriptionTypeCode;
+    }
+
+    void SetPrescriptionTypeCode(const std::string &prescriptionTypeCode) {
+        this->prescriptionTypeCode = prescriptionTypeCode;
+    }
+
+    [[nodiscard]] std::string GetPrescriptionTypeDisplay() const {
+        return prescriptionTypeDisplay;
+    }
+
+    void SetPrescriptionTypeDisplay(const std::string &prescriptionTypeDisplay) {
+        this->prescriptionTypeDisplay = prescriptionTypeDisplay;
+    }
+
+    [[nodiscard]] std::string GetPrescriptionId() const {
+        return prescriptionId;
+    }
+
+    void SetPrescriptionId(const std::string &prescriptionId) {
+        this->prescriptionId = prescriptionId;
+    }
+
+    [[nodiscard]] bool IsGenericSubstitutionAccepted() const {
+        return genericSubstitutionAccepted;
+    }
+
+    void SetGenericSubstitutionAccepted(bool genericSubstitutionAccepted) {
+        this->genericSubstitutionAccepted = genericSubstitutionAccepted;
+    }
+
+    [[nodiscard]] std::string GetPrescribedByHpr() const {
+        return prescribedByHpr;
+    }
+
+    void SetPrescribedByHpr(const std::string &prescribedByHpr) {
+        this->prescribedByHpr = prescribedByHpr;
+    }
+
+    [[nodiscard]] std::string GetPrescribedByGivenName() const {
+        return prescribedByGivenName;
+    }
+
+    void SetPrescribedByGivenName(const std::string &prescribedByGivenName) {
+        this->prescribedByGivenName = prescribedByGivenName;
+    }
+
+    [[nodiscard]] std::string GetPrescribedByFamilyName() const {
+        return prescribedByFamilyName;
+    }
+
+    void SetPrescribedByFamilyName(const std::string &prescribedByFamilyName) {
+        this->prescribedByFamilyName = prescribedByFamilyName;
+    }
+
+    virtual std::string Serialize() const;
+    static PaperDispatch Parse(const std::string &json);
 };
 
 #endif //SFMBASISFAKER_PRESCRIPTION_H

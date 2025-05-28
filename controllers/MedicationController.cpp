@@ -280,6 +280,56 @@ FhirParameters MedicationController::GetMedication(const std::string &selfUrl, c
             medicationStatementEntries.emplace_back(medicationStatement);
             medicationSectionEntries.emplace_back(medicationStatementReferenceObject);
         }
+        auto paperDispatchList = prescriptionStorage.LoadPaperDispatchMap(patient.GetId());
+        for (const auto &paperDispatchId : paperDispatchList) {
+            auto paperDispatch = prescriptionStorage.LoadPaperDispatch(patient.GetId(), paperDispatchId);
+            auto medications = createPrescriptionService.CreateFhirMedication(paperDispatch.GetMedication());
+            if (medications.empty()) {
+                continue;
+            }
+            auto medicationStatement = createPrescriptionService.CreateFhirMedicationStatement(paperDispatch, practitioners);
+            std::string medicationStatementRef = medicationStatement.GetFullUrl();
+            if (medicationStatementRef.empty()) {
+                continue;
+            }
+            auto medicationStatementResource = std::dynamic_pointer_cast<FhirMedicationStatement>(medicationStatement.GetResource());
+            if (!medicationStatementResource) {
+                continue;
+            }
+            urlToMedicationStatementMap.insert_or_assign(medicationStatementRef,medicationStatementResource);
+            std::string medicationStatementDisplay = medicationStatementResource->GetDisplay();
+            FhirReference medicationStatementReferenceObject{medicationStatementRef, "http://ehelse.no/fhir/StructureDefinition/sfm-MedicationStatement", medicationStatementDisplay};
+            std::string medicationRef{};
+            std::string medicationType{};
+            std::string medicationDisplay{};
+            {
+                const FhirBundleEntry *lastEntry;
+                for (const auto &entry : medications) {
+                    lastEntry = &entry;
+                    medicamentEntries.emplace_back(entry);
+                }
+                medicationRef = lastEntry->GetFullUrl();
+                const auto &resource = lastEntry->GetResource();
+                {
+                    auto profiles = resource->GetProfile();
+                    if (!profiles.empty()) {
+                        medicationType = profiles[0];
+                    }
+                }
+                medicationDisplay = resource->GetDisplay();
+            }
+            {
+                FhirReference medicationReference{medicationRef, medicationType, medicationDisplay};
+                medicationStatementResource->SetMedicationReference(medicationReference);
+            }
+            {
+                auto patientResource = patientEntry.GetResource();
+                FhirReference subjectReference{patientEntry.GetFullUrl(), "http://ehelse.no/fhir/StructureDefinition/sfm-Patient", patientResource->GetDisplay()};
+                medicationStatementResource->SetSubject(subjectReference);
+            }
+            medicationStatementEntries.emplace_back(medicationStatement);
+            medicationSectionEntries.emplace_back(medicationStatementReferenceObject);
+        }
     }
     {
         std::vector<std::string> urlRefsToRemove{};
@@ -1081,6 +1131,7 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
             }
             pll.SetAllergies(std::move(allergies));
             pllStorage.Store(patientId, pll);
+            prescriptionStorage.StorePaperDispatchMap(patientId, {});
         }
     }
     auto parameters = std::make_shared<FhirParameters>();

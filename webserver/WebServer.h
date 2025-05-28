@@ -413,7 +413,8 @@ public:
 
     template <class V> V &operator / (const V &handler) {
         add_path_handler(handler);
-        return *(path_handlers.back());
+        PathHandler<Args..., T> &ref = *(path_handlers.back());
+        return dynamic_cast<V &>(ref);
     }
     ByPathComp<Args..., T> &operator / (const std::string &pcomp) {
         return *this / ByPathComp<Args..., T>(pcomp);

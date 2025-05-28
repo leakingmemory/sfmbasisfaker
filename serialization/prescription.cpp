@@ -12,6 +12,11 @@ web::json::value Medication::Serialize() const {
     obj["form"] = form.Serialize();
     obj["atc"] = web::json::value::string(atc);
     obj["atcDisplay"] = web::json::value::string(atcDisplay);
+    if (amount) {
+        obj["amount"] = web::json::value::number(*amount);
+    }
+    obj["amountUnit"] = web::json::value::string(amountUnit);
+    obj["amountText"] = web::json::value::string(amountText);
     return obj;
 }
 
@@ -27,6 +32,15 @@ void Medication::ParseInline(const web::json::value &json) {
     }
     if (json.has_string_field("atcDisplay")) {
         atcDisplay = json.at("atcDisplay").as_string();
+    }
+    if (json.has_number_field("amount")) {
+        amount = json.at("amount").as_double();
+    }
+    if (json.has_string_field("amountUnit")) {
+        amountUnit = json.at("amountUnit").as_string();
+    }
+    if (json.has_string_field("amountText")) {
+        amountText = json.at("amountText").as_string();
     }
 }
 
@@ -256,4 +270,75 @@ Prescription Prescription::Parse(const std::string &json) {
         prescription.cessationTime = obj.at("cessationTime").as_string();
     }
     return prescription;
+}
+
+std::string PaperDispatch::Serialize() const {
+    auto obj = web::json::value::object();
+    obj["id"] = web::json::value::string(id);
+    if (medication) {
+        obj["medication"] = medication->Serialize();
+    }
+    obj["dssn"] = web::json::value::string(dssn);
+    if (numberOfPackages) {
+        obj["numberOfPackages"] = web::json::value::number(*numberOfPackages);
+    }
+    obj["reit"] = web::json::value::string(reit);
+    obj["itemGroupCode"] = web::json::value::string(itemGroupCode);
+    obj["itemGroupDisplay"] = web::json::value::string(itemGroupDisplay);
+    obj["prescriptionTypeCode"] = web::json::value::string(prescriptionTypeCode);
+    obj["prescriptionTypeDisplay"] = web::json::value::string(prescriptionTypeDisplay);
+    obj["prescriptionId"] = web::json::value::string(prescriptionId);
+    obj["genericSubstitutionAccepted"] = web::json::value::boolean(genericSubstitutionAccepted);
+    obj["prescribedByHpr"] = web::json::value::string(prescribedByHpr);
+    obj["prescribedByGivenName"] = web::json::value::string(prescribedByGivenName);
+    obj["prescribedByFamilyName"] = web::json::value::string(prescribedByFamilyName);
+    return obj.serialize();
+}
+
+PaperDispatch PaperDispatch::Parse(const std::string &json) {
+    PaperDispatch paperDispatch{};
+    auto obj = web::json::value::parse(json);
+    if (obj.has_string_field("id")) {
+        paperDispatch.id = obj.at("id").as_string();
+    }
+    if (obj.has_object_field("medication")) {
+        paperDispatch.medication = Medication::Parse(obj.at("medication"));
+    }
+    if (obj.has_string_field("dssn")) {
+        paperDispatch.dssn = obj.at("dssn").as_string();
+    }
+    if (obj.has_number_field("numberOfPackages")) {
+        paperDispatch.numberOfPackages = obj.at("numberOfPackages").as_double();
+    }
+    if (obj.has_string_field("reit")) {
+        paperDispatch.reit = obj.at("reit").as_string();
+    }
+    if (obj.has_string_field("itemGroupCode")) {
+        paperDispatch.itemGroupCode = obj.at("itemGroupCode").as_string();
+    }
+    if (obj.has_string_field("itemGroupDisplay")) {
+        paperDispatch.itemGroupDisplay = obj.at("itemGroupDisplay").as_string();
+    }
+    if (obj.has_string_field("prescriptionTypeCode")) {
+        paperDispatch.prescriptionTypeCode = obj.at("prescriptionTypeCode").as_string();
+    }
+    if (obj.has_string_field("prescriptionTypeDisplay")) {
+        paperDispatch.prescriptionTypeDisplay = obj.at("prescriptionTypeDisplay").as_string();
+    }
+    if (obj.has_string_field("prescriptionId")) {
+        paperDispatch.prescriptionId = obj.at("prescriptionId").as_string();
+    }
+    if (obj.has_boolean_field("genericSubstitutionAccepted")) {
+        paperDispatch.genericSubstitutionAccepted = obj.at("genericSubstitutionAccepted").as_bool();
+    }
+    if (obj.has_string_field("prescribedByHpr")) {
+        paperDispatch.prescribedByHpr = obj.at("prescribedByHpr").as_string();
+    }
+    if (obj.has_string_field("prescribedByGivenName")) {
+        paperDispatch.prescribedByGivenName = obj.at("prescribedByGivenName").as_string();
+    }
+    if (obj.has_string_field("prescribedByFamilyName")) {
+        paperDispatch.prescribedByFamilyName = obj.at("prescribedByFamilyName").as_string();
+    }
+    return paperDispatch;
 }

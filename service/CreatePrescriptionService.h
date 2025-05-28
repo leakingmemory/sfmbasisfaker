@@ -40,6 +40,7 @@ public:
     [[nodiscard]] std::vector<FhirBundleEntry> CreateFhirMedication(const std::shared_ptr<Medication> &medication) const;
     [[nodiscard]] PractitionerRef GetPractitionerRef(const std::string &id, std::vector<FhirBundleEntry> &practitioners) const;
     [[nodiscard]] FhirBundleEntry CreateFhirMedicationStatement(const Prescription &prescription, std::vector<FhirBundleEntry> &practitioners);
+    [[nodiscard]] FhirBundleEntry CreateFhirMedicationStatement(const PaperDispatch &paperDispatch, std::vector<FhirBundleEntry> &practitioners);
 };
 
 

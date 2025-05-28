@@ -15,23 +15,24 @@ public:
     std::optional<pplx::task<web::http::http_response>> filter(std::function<std::optional<pplx::task<web::http::http_response>> (web::http::http_request &, Args...)> next, const std::vector<std::string> &path, const std::map<std::string,std::string> &query, web::http::http_request &request, Args... args) override {
         auto t = std::time(nullptr);
         auto tm = *std::localtime(&t);
+        std::string method = request.method();
         std::string uri = request.request_uri().to_string();
         try {
             auto nextTaskOpt = next(request, args...);
             if (nextTaskOpt) {
                 auto &nextTask = *nextTaskOpt;
-                return nextTask.then([uri, tm] (const pplx::task<web::http::http_response> &task) {
+                return nextTask.then([method, uri, tm] (const pplx::task<web::http::http_response> &task) {
                     try {
                         auto response = task.get();
                         std::ofstream log{};
                         log.open(DataDirectory::Data("sfmbasisfaker").FileName("access.log"), std::ios_base::app);
-                        log << std::put_time(&tm, "%d-%m-%Y %H:%M:%S") << " " << response.status_code() << " " << uri << "\n";
+                        log << std::put_time(&tm, "%d-%m-%Y %H:%M:%S") << " " << method << " " << response.status_code() << " " << uri << "\n";
                         log.close();
                         return response;
                     } catch (...) {
                         std::ofstream log{};
                         log.open(DataDirectory::Data("sfmbasisfaker").FileName("access.log"), std::ios_base::app);
-                        log << std::put_time(&tm, "%d-%m-%Y %H:%M:%S") << " " << "ASYNC-EXCEPTION " << uri << "\n";
+                        log << std::put_time(&tm, "%d-%m-%Y %H:%M:%S") << " " << method << " " << "ASYNC-EXCEPTION " << uri << "\n";
                         log.close();
                         throw;
                     }
@@ -39,14 +40,14 @@ public:
             } else {
                 std::ofstream log{};
                 log.open(DataDirectory::Data("sfmbasisfaker").FileName("access.log"), std::ios_base::app);
-                log << std::put_time(&tm, "%d-%m-%Y %H:%M:%S") << " " << "NORESP " << uri << "\n";
+                log << std::put_time(&tm, "%d-%m-%Y %H:%M:%S") << " " << method << " " << "NORESP " << uri << "\n";
                 log.close();
                 return {};
             }
         } catch (...) {
             std::ofstream log{};
             log.open(DataDirectory::Data("sfmbasisfaker").FileName("access.log"), std::ios_base::app);
-            log << std::put_time(&tm, "%d-%m-%Y %H:%M:%S") << " " << "SYNC-EXCEPTION " << uri << "\n";
+            log << std::put_time(&tm, "%d-%m-%Y %H:%M:%S") << " " << method << " " << "SYNC-EXCEPTION " << uri << "\n";
             log.close();
             throw;
         }
@@ -346,12 +347,105 @@ int main() {
                 for (const auto patient: patients) {
                     auto pat = web::json::value::object();
                     pat["id"] = web::json::value::string(patient.id);
+                    pat["firstName"] = web::json::value::string(patient.firstName);
+                    pat["lastName"] = web::json::value::string(patient.lastName);
                     json[i++] = pat;
                 }
                 web::http::http_response response(web::http::status_codes::OK);
                 {
                     auto jsonString = json.serialize();
                     response.set_body(jsonString, "application/fhir+json; charset=utf-8");
+                }
+                return response;
+            });
+        };
+        webServer / "pharmacy" / "patients" / PathVariable<std::string>() / "paperdispatch" >> [pharmacyController] web_handler (const web::http::http_request &request, const std::string &patientId) {
+            if (request.method() == "PUT") {
+                pplx::task<web::http::http_response> resp = request.extract_json().then(
+                        [pharmacyController, patientId](
+                                const pplx::task<web::json::value> &jsonTask) -> web::http::http_response {
+                            try {
+                                auto json = jsonTask.get();
+                                PaperDispatchData paperDispatchData{};
+
+                                if (json.has_string_field("prescriptionGroup"))
+                                    paperDispatchData.prescriptionGroup = json.at("prescriptionGroup").as_string();
+                                if (json.has_string_field("registrationType"))
+                                    paperDispatchData.registrationType = json.at("registrationType").as_string();
+                                if (json.has_string_field("name"))
+                                    paperDispatchData.name = json.at("name").as_string();
+                                if (json.has_string_field("nameFormStrength"))
+                                    paperDispatchData.nameFormStrength = json.at("nameFormStrength").as_string();
+                                if (json.has_string_field("packingSize"))
+                                    paperDispatchData.packingSize = json.at("packingSize").as_string();
+                                if (json.has_string_field("packingUnitCode"))
+                                    paperDispatchData.packingUnitCode = json.at("packingUnitCode").as_string();
+                                if (json.has_string_field("packingUnitDisplay"))
+                                    paperDispatchData.packingUnitDisplay = json.at("packingUnitDisplay").as_string();
+                                if (json.has_string_field("productNumber"))
+                                    paperDispatchData.productNumber = json.at("productNumber").as_string();
+                                if (json.has_string_field("atcCode"))
+                                    paperDispatchData.atcCode = json.at("atcCode").as_string();
+                                if (json.has_string_field("atcDisplay"))
+                                    paperDispatchData.atcDisplay = json.at("atcDisplay").as_string();
+                                if (json.has_string_field("formCode"))
+                                    paperDispatchData.formCode = json.at("formCode").as_string();
+                                if (json.has_string_field("formDisplay"))
+                                    paperDispatchData.formDisplay = json.at("formDisplay").as_string();
+                                if (json.has_number_field("amount"))
+                                    paperDispatchData.amount = json.at("amount").as_double();
+                                if (json.has_string_field("amountUnit"))
+                                    paperDispatchData.amountUnit = json.at("amountUnit").as_string();
+                                if (json.has_string_field("amountText"))
+                                    paperDispatchData.amountText = json.at("amountText").as_string();
+                                if (json.has_string_field("dssn"))
+                                    paperDispatchData.dssn = json.at("dssn").as_string();
+                                if (json.has_number_field("numberOfPackages"))
+                                    paperDispatchData.numberOfPackages = json.at("numberOfPackages").as_double();
+                                if (json.has_string_field("reit"))
+                                    paperDispatchData.reit = json.at("reit").as_string();
+                                if (json.has_string_field("itemGroupCode"))
+                                    paperDispatchData.itemGroupCode = json.at("itemGroupCode").as_string();
+                                if (json.has_string_field("itemGroupDisplay"))
+                                    paperDispatchData.itemGroupDisplay = json.at("itemGroupDisplay").as_string();
+                                if (json.has_string_field("prescriptionTypeCode"))
+                                    paperDispatchData.prescriptionTypeCode = json.at(
+                                            "prescriptionTypeCode").as_string();
+                                if (json.has_string_field("prescriptionTypeDisplay"))
+                                    paperDispatchData.prescriptionTypeDisplay = json.at(
+                                            "prescriptionTypeDisplay").as_string();
+                                if (json.has_string_field("prescriptionId"))
+                                    paperDispatchData.prescriptionId = json.at("prescriptionId").as_string();
+                                if (json.has_boolean_field("genericSubstitutionAccepted"))
+                                    paperDispatchData.genericSubstitutionAccepted = json.at(
+                                            "genericSubstitutionAccepted").as_bool();
+                                if (json.has_string_field("prescribedByHpr"))
+                                    paperDispatchData.prescribedByHpr = json.at("prescribedByHpr").as_string();
+                                if (json.has_string_field("prescribedByGivenName"))
+                                    paperDispatchData.prescribedByGivenName = json.at(
+                                            "prescribedByGivenName").as_string();
+                                if (json.has_string_field("prescribedByFamilyName"))
+                                    paperDispatchData.prescribedByFamilyName = json.at(
+                                            "prescribedByFamilyName").as_string();
+                                pharmacyController->PaperDispense(patientId, paperDispatchData);
+                                web::http::http_response response(web::http::status_codes::OK);
+                                return response;
+
+                            } catch (...) {
+                                std::cerr << "Exception in paper dispatch\n";
+                                web::http::http_response response(web::http::status_codes::InternalError);
+                                return response;
+                            }
+
+                        });
+                return resp;
+            }
+            return handle_web ([patientId] async_web {
+                auto json = web::json::value::string(patientId);
+                web::http::http_response response(web::http::status_codes::OK);
+                {
+                    auto jsonString = json.serialize();
+                    response.set_body(jsonString, "application/json; charset=utf-8");
                 }
                 return response;
             });

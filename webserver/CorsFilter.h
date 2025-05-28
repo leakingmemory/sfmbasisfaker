@@ -30,26 +30,39 @@ public:
             } else if (originHost.starts_with("http://")) {
                 originHost = originHost.substr(7);
             }
-            if (std::find(originHosts.begin(), originHosts.end(), originHost) != originHosts.end()) {
-                if (request.method() == web::http::methods::GET) {
-                    std::optional<pplx::task<web::http::http_response>> opt_response = next(request, args...);
-                    if (opt_response) {
-                        pplx::task<web::http::http_response> response_task{
-                            opt_response.value().then([origin] (web::http::http_response response) {
-                                response.headers()["Access-Control-Allow-Origin"] = origin;
-                                return response;
-                            })
-                        };
-                        return { response_task };
-                    } else {
-                        return { };
+            std::string allowMethods{};
+            std::string allowHeaders{};
+            {
+                auto allowMethodsHeader = headers.find("access-control-request-method");
+                if (allowMethodsHeader != headers.end()) {
+                    allowMethods = allowMethodsHeader->second;
+                    if (!allowMethods.empty()) {
+                        allowMethods.append(", GET, OPTIONS");
                     }
+                }
+                auto allowHeadersHeader = headers.find("access-control-request-headers");
+                if (allowHeadersHeader != headers.end()) {
+                    allowHeaders = allowHeadersHeader->second;
+                }
+            }
+            if (std::find(originHosts.begin(), originHosts.end(), originHost) != originHosts.end()) {
+                std::optional<pplx::task<web::http::http_response>> opt_response = next(request, args...);
+                if (opt_response) {
+                    pplx::task<web::http::http_response> response_task{
+                        opt_response.value().then([origin = std::move(origin), allowMethods = std::move(allowMethods), allowHeaders = std::move(allowHeaders)] (web::http::http_response response) {
+                            response.headers()["Access-Control-Allow-Origin"] = origin;
+                            if (!allowMethods.empty()) {
+                                response.headers()["Access-Control-Allow-Methods"] = allowMethods;
+                            }
+                            if (!allowHeaders.empty()) {
+                                response.headers()["Access-Control-Allow-Headers"] = allowHeaders;
+                            }
+                            return response;
+                        })
+                    };
+                    return { response_task };
                 } else {
-                    web::json::value json = web::json::value::object();
-                    json["error"] = web::json::value("CORS rejected");
-                    web::http::http_response response{web::http::status_codes::Forbidden};
-                    response.set_body(json);
-                    return { completed_task(response) };
+                    return { };
                 }
             } else {
                 web::json::value json = web::json::value::object();
