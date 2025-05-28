@@ -14,6 +14,7 @@
 #include <sfmbasisapi/fhir/fhirbasic.h>
 #include <sfmbasisapi/fhir/operationoutcome.h>
 #include <sfmbasisapi/fhir/allergy.h>
+#include <sfmbasisapi/fhir/meddispense.h>
 #include <sfmbasisapi/IsoDateTime.h>
 #include "../domain/person.h"
 #include "../domain/prescription.h"
@@ -209,11 +210,14 @@ FhirParameters MedicationController::GetMedication(const std::string &selfUrl, c
             p.SetAddress(fhirPatient.GetAddress());
         }
     }
+    std::vector<FhirBundleEntry> organizations{};
     std::vector<FhirBundleEntry> practitioners{};
     practitioners.emplace_back(practitionerEntry);
     std::vector<FhirBundleEntry> medicamentEntries{};
     std::vector<FhirBundleEntry> medicationStatementEntries{};
     std::vector<FhirReference> medicationSectionEntries{};
+    std::vector<FhirBundleEntry> medicationDispenseEntries{};
+    std::vector<FhirReference> medicationDispenseSectionEntries{};
     std::map<std::string,std::shared_ptr<FhirMedicationStatement>> urlToMedicationStatementMap{};
     std::map<std::string,FhirReference> urlToStatementReferenceMap{};
     std::map<std::string,std::string> prescriptionIdToUrlMap{};
@@ -318,10 +322,8 @@ FhirParameters MedicationController::GetMedication(const std::string &selfUrl, c
                 }
                 medicationDisplay = resource->GetDisplay();
             }
-            {
-                FhirReference medicationReference{medicationRef, medicationType, medicationDisplay};
-                medicationStatementResource->SetMedicationReference(medicationReference);
-            }
+            FhirReference medicationReference{medicationRef, medicationType, medicationDisplay};
+            medicationStatementResource->SetMedicationReference(medicationReference);
             {
                 auto patientResource = patientEntry.GetResource();
                 FhirReference subjectReference{patientEntry.GetFullUrl(), "http://ehelse.no/fhir/StructureDefinition/sfm-Patient", patientResource->GetDisplay()};
@@ -329,6 +331,58 @@ FhirParameters MedicationController::GetMedication(const std::string &selfUrl, c
             }
             medicationStatementEntries.emplace_back(medicationStatement);
             medicationSectionEntries.emplace_back(medicationStatementReferenceObject);
+            FhirBundleEntry organizationEntry;
+            {
+                auto organization = std::make_shared<FhirOrganization>();
+                {
+                    boost::uuids::uuid uuid = boost::uuids::random_generator()();
+                    std::string uuid_string = to_string(uuid);
+                    organization->SetId(uuid_string);
+                }
+                organization->SetProfile("http://ehelse.no/fhir/StructureDefinition/sfm-Organization");
+                organization->SetIdentifiers({FhirIdentifier("official", "urn:oid:2.16.578.1.12.4.1.2",
+                                                             paperDispatch.GetDispatcherHerId())});
+                organization->SetName(paperDispatch.GetDispatcherName());
+                std::string fullUrl{"urn:uuid:"};
+                fullUrl.append(organization->GetId());
+                organizationEntry = {fullUrl, organization};
+            }
+            organizations.emplace_back(organizationEntry);
+            FhirBundleEntry dispatchEntry;
+            {
+                auto dispatch = std::make_shared<FhirMedicationDispense>();
+                {
+                    boost::uuids::uuid uuid = boost::uuids::random_generator()();
+                    std::string uuid_string = to_string(uuid);
+                    dispatch->SetId(uuid_string);
+                }
+                dispatch->SetProfile("http://ehelse.no/fhir/StructureDefinition/sfm-MedicationDispense");
+                dispatch->SetMedicationReference(medicationReference);
+                {
+                    auto dispatchInfo = std::make_shared<FhirExtension>("http://ehelse.no/fhir/StructureDefinition/sfm-dispenseinfo");
+                    dispatchInfo->AddExtension(std::make_shared<FhirValueExtension>("cancellation", std::make_shared<FhirBooleanValue>(false)));
+                    dispatchInfo->AddExtension(std::make_shared<FhirValueExtension>("concluded", std::make_shared<FhirBooleanValue>(true)));
+                    dispatchInfo->AddExtension(std::make_shared<FhirValueExtension>("substitutionreservationcustomer", std::make_shared<FhirBooleanValue>(paperDispatch.IsSubstitutionReservationCustomer())));
+                    dispatchInfo->AddExtension(std::make_shared<FhirValueExtension>("prescriptionid", std::make_shared<FhirString>(paperDispatch.GetId())));
+                    dispatch->AddExtension(dispatchInfo);
+                }
+                dispatch->SetIdentifiers({FhirIdentifier("official", "M10id", paperDispatch.GetDispatchMsgId())});
+                dispatch->SetStatus(FhirStatus::COMPLETED);
+                {
+                    auto patientResource = patientEntry.GetResource();
+                    FhirReference subjectReference{patientEntry.GetFullUrl(), "http://ehelse.no/fhir/StructureDefinition/sfm-Patient", patientResource->GetDisplay()};
+                    dispatch->SetSubject(subjectReference);
+                }
+                dispatch->SetPerformer({{.actor = {organizationEntry.GetFullUrl(), "http://ehelse.no/fhir/StructureDefinition/sfm-Organization", organizationEntry.GetResource()->GetDisplay()}}});
+                dispatch->SetAuthorizingPrescription({medicationStatementReferenceObject});
+                dispatch->SetQuantity(FhirQuantity(paperDispatch.GetQuantity(), ""));
+                dispatch->SetDosageInstruction({FhirDosage(paperDispatch.GetDssn(), 0)});
+                std::string fullUrl{"urn:uuid:"};
+                fullUrl.append(dispatch->GetId());
+                dispatchEntry = {fullUrl, dispatch};
+            }
+            medicationDispenseEntries.emplace_back(dispatchEntry);
+            medicationDispenseSectionEntries.emplace_back(dispatchEntry.CreateReference("http://ehelse.no/fhir/StructureDefinition/sfm-MedicationDispense"));
         }
     }
     {
@@ -465,6 +519,16 @@ FhirParameters MedicationController::GetMedication(const std::string &selfUrl, c
     otherPrescriptionsSection.SetTextStatus("generated");
     otherPrescriptionsSection.SetTextXhtml("<xhtml:div xmlns:xhtml=\"http://www.w3.org/1999/xhtml\"></xhtml:div>");
     otherPrescriptionsSection.SetEmptyReason(FhirCodeableConcept("http://terminology.hl7.org/CodeSystem/list-empty-reason", "unavailable", "Unavailable"));
+    FhirCompositionSection medicationDispenseSection{};
+    medicationDispenseSection.SetTitle("sectionDispense");
+    medicationDispenseSection.SetCode(FhirCodeableConcept("http://ehelse.no/fhir/CodeSystem/sfm-section-types", "sectionDispense", "Section dispense"));
+    medicationDispenseSection.SetTextStatus("generated");
+    medicationDispenseSection.SetTextXhtml("<xhtml:div xmlns:xhtml=\"http://www.w3.org/1999/xhtml\"></xhtml:div>");
+    if (!medicationDispenseEntries.empty()) {
+        medicationDispenseSection.SetEntries(medicationDispenseSectionEntries);
+    } else {
+        medicationDispenseSection.SetEmptyReason(FhirCodeableConcept("http://terminology.hl7.org/CodeSystem/list-empty-reason", "unavailable", "Unavailable"));
+    }
     FhirBundleEntry medicationComposition{};
     {
         std::string url{"urn:uuid:"};
@@ -499,6 +563,9 @@ FhirParameters MedicationController::GetMedication(const std::string &selfUrl, c
         resource.AddSection(medicationSection);
         resource.AddSection(pllInfoSection);
         resource.AddSection(allergiesSection);
+        if (!medicationDispenseSectionEntries.empty()) {
+            resource.AddSection(medicationDispenseSection);
+        }
         resource.AddSection(otherPrescriptionsSection);
     }
     auto bundle = std::make_shared<FhirBundle>();
@@ -517,6 +584,9 @@ FhirParameters MedicationController::GetMedication(const std::string &selfUrl, c
     bundle->AddEntry(medicationComposition);
     bundle->AddEntry(organizationEntry);
     bundle->AddEntry(patientEntry);
+    for (const auto &entry : organizations) {
+        bundle->AddEntry(entry);
+    }
     for (const auto &entry : practitioners) {
         bundle->AddEntry(entry);
     }
@@ -524,6 +594,9 @@ FhirParameters MedicationController::GetMedication(const std::string &selfUrl, c
         bundle->AddEntry(entry);
     }
     for (const auto &entry : medicationStatementEntries) {
+        bundle->AddEntry(entry);
+    }
+    for (const auto &entry : medicationDispenseEntries) {
         bundle->AddEntry(entry);
     }
     for (const auto &entry : allergyEntries) {
