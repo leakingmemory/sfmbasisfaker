@@ -377,6 +377,7 @@ FhirParameters MedicationController::GetMedication(const std::string &selfUrl, c
                 dispatch->SetAuthorizingPrescription({medicationStatementReferenceObject});
                 dispatch->SetQuantity(FhirQuantity(paperDispatch.GetQuantity(), ""));
                 dispatch->SetDosageInstruction({FhirDosage(paperDispatch.GetDssn(), 0)});
+                dispatch->SetWhenHandedOver(paperDispatch.GetWhenHandedOver());
                 std::string fullUrl{"urn:uuid:"};
                 fullUrl.append(dispatch->GetId());
                 dispatchEntry = {fullUrl, dispatch};
@@ -482,6 +483,12 @@ FhirParameters MedicationController::GetMedication(const std::string &selfUrl, c
             m251->SetIdentifiers(identifiers);
             m251->SetProfile("http://ehelse.no/fhir/StructureDefinition/sfm-PLL-info");
             m251->SetSubject(patientEntry.CreateReference("http://ehelse.no/fhir/StructureDefinition/sfm-Patient"));
+            auto pllInfoExt = std::make_shared<FhirExtension>("http://ehelse.no/fhir/StructureDefinition/sfm-pllInformation");
+            auto pllDate = pll.GetDateTime();
+            if (!pllDate.empty()) {
+                pllInfoExt->AddExtension(std::make_shared<FhirValueExtension>("PLLdate", std::make_shared<FhirDateTimeValue>(pllDate)));
+            }
+            m251->AddExtension(pllInfoExt);
         }
     }
     FhirCompositionSection pllInfoSection{};

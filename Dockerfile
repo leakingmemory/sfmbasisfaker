@@ -10,7 +10,7 @@ RUN emerge --sync guru
 RUN echo 'dev-cpp/cpprestsdk ~amd64' > /etc/portage/package.accept_keywords/cpprestsdk
 RUN emerge cpprestsdk
 RUN eselect repository add leakingmemory git https://github.com/leakingmemory/gentoo-overlay.git
-RUN echo '>=dev-cpp/libsfmbasisapi-0.4.1 ~amd64' > /etc/portage/package.accept_keywords/libsfmbasisapi
+RUN echo '>=dev-cpp/libsfmbasisapi-0.4.3 ~amd64' > /etc/portage/package.accept_keywords/libsfmbasisapi
 RUN echo 'dev-cpp/libjjwtid ~amd64' > /etc/portage/package.accept_keywords/libjjwtid
 RUN emerge --sync leakingmemory
 RUN quickpkg "*/*"
