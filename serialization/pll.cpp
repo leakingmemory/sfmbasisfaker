@@ -53,10 +53,15 @@ std::string Pll::Serialize() const {
     obj["id"] = web::json::value::string(id);
     obj["datetime"] = web::json::value::string(dateTime);
     auto allergiesArr = web::json::value::array(allergies.size());
-    for (typeof(allergies.size()) i = 0; i < allergies.size(); i++) {
+    for (decltype(allergies.size()) i = 0; i < allergies.size(); i++) {
         allergiesArr[i] = web::json::value::parse(allergies[i].Serialize());
     }
     obj["allergies"] = allergiesArr;
+    auto prescriptionsArr = web::json::value::array(prescriptions.size());
+    for (decltype(prescriptions.size()) i = 0; i < prescriptions.size(); i++) {
+        prescriptionsArr[i] = web::json::value::string(prescriptions[i].Serialize());
+    }
+    obj["prescriptions"] = prescriptionsArr;
     return obj.serialize();
 }
 
@@ -75,6 +80,14 @@ Pll Pll::Parse(const std::string &json) {
                 continue;
             }
             pll.allergies.emplace_back(PllAllergy::Parse(allergyObj.serialize()));
+        }
+    }
+    if (obj.has_array_field("prescriptions")) {
+        for (const auto &prescriptionObj : obj.at("prescriptions").as_array()) {
+            if (!prescriptionObj.is_string()) {
+                continue;
+            }
+            pll.prescriptions.emplace_back(Prescription::Parse(prescriptionObj.as_string()));
         }
     }
     return pll;

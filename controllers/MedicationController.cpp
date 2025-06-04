@@ -222,9 +222,13 @@ FhirParameters MedicationController::GetMedication(const std::string &selfUrl, c
     std::map<std::string,FhirReference> urlToStatementReferenceMap{};
     std::map<std::string,std::string> prescriptionIdToUrlMap{};
     std::map<std::string,std::string> prescriptionIdToPreviousIdMap{};
+    PllStorage pllStorage{};
+    auto pll = pllStorage.Load(patient.GetId());
     {
         PrescriptionStorage prescriptionStorage{};
         CreatePrescriptionService createPrescriptionService{};
+        std::vector<std::string> ePrescriptionIdsObserved{};
+        std::vector<std::string> pllIdsObserved{};
         auto lookupList = prescriptionStorage.LoadPatientMap(patient.GetId());
         for (const auto &lookup : lookupList) {
             auto prescription = prescriptionStorage.Load(patient.GetId(), lookup);
@@ -241,6 +245,12 @@ FhirParameters MedicationController::GetMedication(const std::string &selfUrl, c
             if (!medicationStatementResource) {
                 continue;
             }
+            if (!prescription.GetPllId().empty()) {
+                pllIdsObserved.emplace_back(prescription.GetPllId());
+            }
+            if (!prescription.GetId().empty()) {
+                ePrescriptionIdsObserved.emplace_back(prescription.GetId());
+            }
             urlToMedicationStatementMap.insert_or_assign(medicationStatementRef,medicationStatementResource);
             std::string medicationStatementDisplay = medicationStatementResource->GetDisplay();
             FhirReference medicationStatementReferenceObject{medicationStatementRef, "http://ehelse.no/fhir/StructureDefinition/sfm-MedicationStatement", medicationStatementDisplay};
@@ -252,6 +262,72 @@ FhirParameters MedicationController::GetMedication(const std::string &selfUrl, c
             auto previousPrescriptionId = prescription.GetPreviousId();
             if (!previousPrescriptionId.empty()) {
                 prescriptionIdToPreviousIdMap.insert_or_assign(prescriptionId,previousPrescriptionId);
+            }
+            std::string medicationRef{};
+            std::string medicationType{};
+            std::string medicationDisplay{};
+            {
+                const FhirBundleEntry *lastEntry;
+                for (const auto &entry : medications) {
+                    lastEntry = &entry;
+                    medicamentEntries.emplace_back(entry);
+                }
+                medicationRef = lastEntry->GetFullUrl();
+                const auto &resource = lastEntry->GetResource();
+                {
+                    auto profiles = resource->GetProfile();
+                    if (!profiles.empty()) {
+                        medicationType = profiles[0];
+                    }
+                }
+                medicationDisplay = resource->GetDisplay();
+            }
+            {
+                FhirReference medicationReference{medicationRef, medicationType, medicationDisplay};
+                medicationStatementResource->SetMedicationReference(medicationReference);
+            }
+            {
+                auto patientResource = patientEntry.GetResource();
+                FhirReference subjectReference{patientEntry.GetFullUrl(), "http://ehelse.no/fhir/StructureDefinition/sfm-Patient", patientResource->GetDisplay()};
+                medicationStatementResource->SetSubject(subjectReference);
+            }
+            medicationStatementEntries.emplace_back(medicationStatement);
+            medicationSectionEntries.emplace_back(medicationStatementReferenceObject);
+        }
+        auto pllEntryList = pll.GetPrescriptions();
+        for (const auto &prescription : pllEntryList) {
+            auto medications = createPrescriptionService.CreateFhirMedication(prescription.GetMedication());
+            if (medications.empty()) {
+                continue;
+            }
+            auto medicationStatement = createPrescriptionService.CreateFhirMedicationStatement(prescription, practitioners);
+            std::string medicationStatementRef = medicationStatement.GetFullUrl();
+            if (medicationStatementRef.empty()) {
+                continue;
+            }
+            auto medicationStatementResource = std::dynamic_pointer_cast<FhirMedicationStatement>(medicationStatement.GetResource());
+            if (!medicationStatementResource) {
+                continue;
+            }
+            auto prescriptionId = prescription.GetId();
+            if (!prescription.GetPllId().empty()) {
+                if (std::find(pllIdsObserved.cbegin(), pllIdsObserved.cend(), prescription.GetPllId()) != pllIdsObserved.cend()) {
+                    continue;
+                }
+                pllIdsObserved.emplace_back(prescription.GetPllId());
+            }
+            /*if (!prescriptionId.empty()) {
+                if (std::find(ePrescriptionIdsObserved.cbegin(), ePrescriptionIdsObserved.cend(), prescriptionId) != ePrescriptionIdsObserved.cend()) {
+                    continue;
+                }
+                ePrescriptionIdsObserved.emplace_back(prescription.GetId());
+            }*/
+            urlToMedicationStatementMap.insert_or_assign(medicationStatementRef,medicationStatementResource);
+            std::string medicationStatementDisplay = medicationStatementResource->GetDisplay();
+            FhirReference medicationStatementReferenceObject{medicationStatementRef, "http://ehelse.no/fhir/StructureDefinition/sfm-MedicationStatement", medicationStatementDisplay};
+            urlToStatementReferenceMap.insert_or_assign(medicationStatementRef,medicationStatementReferenceObject);
+            if (!prescriptionId.empty()) {
+                prescriptionIdToUrlMap.insert_or_assign(prescriptionId,medicationStatementRef);
             }
             std::string medicationRef{};
             std::string medicationType{};
@@ -443,8 +519,6 @@ FhirParameters MedicationController::GetMedication(const std::string &selfUrl, c
     std::vector<FhirReference> allergyReferences{};
     std::shared_ptr<FhirBundleEntry> m251Entry{};
     {
-        PllStorage pllStorage{};
-        auto pll = pllStorage.Load(patient.GetId());
         if (pll.IsValid()) {
             for (auto &pllAllergy : pll.GetAllergies()) {
                 std::string url{"urn:uuid:"};
@@ -660,6 +734,7 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
     std::vector<std::string> ePrescriptionIds{};
     std::vector<std::string> injectedPllIds{};
     std::vector<Prescription> prescriptions{};
+    std::vector<Prescription> prescriptionsForPll{};
     std::vector<PllAllergy> allergies{};
     std::map<std::string,Code> potentialRecalls{};
     std::map<std::string,PllCessation> potentialPllCessations{};
@@ -668,6 +743,7 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
     std::map<std::string,std::string> pllToPrescriptionIdMap{};
     {
         std::vector<std::shared_ptr<FhirMedicationStatement>> medicationStatements{};
+        std::vector<std::shared_ptr<FhirMedicationStatement>> medicationStatementsForPll{};
         std::map<std::string,std::shared_ptr<FhirBasic>> fhirBasics{};
         std::map<std::string,std::shared_ptr<FhirAllergyIntolerance>> fhirAllergies{};
         std::map<std::string,std::tuple<Code,std::shared_ptr<FhirMedicationStatement>>> potentialRecallsWithStatements{};
@@ -999,6 +1075,8 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
                         if (pllId.empty()) {
                             ePrescriptionIds.emplace_back(prescriptionId);
                         }
+                    } else {
+                        medicationStatementsForPll.emplace_back(medicationStatement);
                     }
                     medicationStatementIterator = medicationStatements.erase(medicationStatementIterator);
                 }
@@ -1030,6 +1108,26 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
             }
             prescriptions.emplace_back(prescription);
         }
+        for (const auto &medicationStatement : medicationStatementsForPll) {
+            Prescription prescription = createPrescriptionService.CreatePrescription(medicationStatement, bundle);
+            {
+                auto pllId = prescription.GetPllId();
+                if (!pllId.empty()) {
+                    injectedPllIds.emplace_back(pllId);
+                }
+            }
+            if (!practitioner.GetId().empty()) {
+                prescription.SetPrescribedBy(practitioner.GetId());
+            }
+            patientId = prescription.GetPatient();
+            if (prescription.GetTypeOfPrescription().getCode() != "E") {
+                boost::uuids::uuid uuid = boost::uuids::random_generator()();
+                std::string uuid_string = to_string(uuid);
+                prescription.SetId(uuid_string);
+                prescription.SetRfStatus({});
+            }
+            prescriptionsForPll.emplace_back(prescription);
+        }
         for (const auto &recallTuple : potentialRecallsWithStatements) {
             auto prescriptionId = recallTuple.first;
             auto code = std::get<0>(recallTuple.second);
@@ -1042,6 +1140,11 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
             return CreateOperationOutcome(CreateIssues(CreateIssue("X", "No patient", "Fatal")));
         }
         for (const auto &prescription : prescriptions) {
+            if (prescription.GetPatient() != patientId) {
+                return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Different patient", "Fatal")));
+            }
+        }
+        for (const auto &prescription : prescriptionsForPll) {
             if (prescription.GetPatient() != patientId) {
                 return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Different patient", "Fatal")));
             }
@@ -1210,6 +1313,7 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
                 pll.SetDateTime(now.to_iso8601());
             }
             pll.SetAllergies(std::move(allergies));
+            pll.SetPrescriptions(prescriptionsForPll);
             pllStorage.Store(patientId, pll);
             prescriptionStorage.StorePaperDispatchMap(patientId, {});
         }

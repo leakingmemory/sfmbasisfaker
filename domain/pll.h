@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include "../domain/prescription.h"
 
 class FhirAllergyIntolerance;
 class FhirBundleEntry;
@@ -97,6 +98,7 @@ private:
     std::string id;
     std::string dateTime;
     std::vector<PllAllergy> allergies;
+    std::vector<Prescription> prescriptions;
 public:
     constexpr Pll() noexcept = default;
     constexpr Pll(const Pll &) = default;
@@ -123,12 +125,20 @@ public:
         return allergies;
     }
 
+    [[nodiscard]] constexpr std::vector<Prescription> GetPrescriptions() const {
+        return prescriptions;
+    }
+
     constexpr void SetAllergies(const std::vector<PllAllergy> &allergies) {
         this->allergies = allergies;
     }
 
     constexpr void SetAllergies(std::vector<PllAllergy> &&allergies) {
         this->allergies = allergies;
+    }
+
+    constexpr void SetPrescriptions(const std::vector<Prescription> &prescriptions) {
+        this->prescriptions = prescriptions;
     }
 
     constexpr bool IsValid() const {
