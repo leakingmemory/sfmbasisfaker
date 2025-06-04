@@ -754,6 +754,7 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
                 auto compositionResource = std::dynamic_pointer_cast<FhirComposition>(entry.GetResource());
                 if (compositionResource) {
                     if (composition) {
+                        std::cerr << "SendMedication: Multiple composition entries\n";
                         return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Multiple composition entries", "Fatal")));
                     }
                     composition = compositionResource;
@@ -770,6 +771,7 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
                 }
             }
             if (!composition) {
+                std::cerr << "SendMedication: No composition entries\n";
                 return CreateOperationOutcome(CreateIssues(CreateIssue("X", "No composition entries", "Fatal")));
             }
             FhirCompositionSection medicationSection{};
@@ -801,9 +803,11 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
                     }
                     if (isMedication) {
                         if (isPllInfo) {
+                            std::cerr << "SendMedication: Ambigous section (med & pll)\n";
                             return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Ambiguous section (med & pll)", "Fatal")));
                         }
                         if (foundMedication) {
+                            std::cerr << "SendMedication: Multiple medication sections\n";
                             return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Multiple medication sections", "Fatal")));
                         }
                         medicationSection = section;
@@ -811,6 +815,7 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
                     }
                     if (isPllInfo) {
                         if (foundPll) {
+                            std::cerr << "SendMedication: Multiple PLL info sections\n";
                             return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Multiple PLL info sections", "Fatal")));
                         }
                         pllSection = section;
@@ -818,6 +823,7 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
                     }
                     if (isAllergies) {
                         if (foundAllergies) {
+                            std::cerr << "SendMedication: Multiple allergies sections\n";
                             return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Multiple allergies sections", "Fatal")));
                         }
                         allergySection = section;
@@ -825,12 +831,15 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
                     }
                 }
                 if (!foundMedication) {
+                    std::cerr << "SendMedication: No medication section\n";
                     return CreateOperationOutcome(CreateIssues(CreateIssue("X", "No medication section", "Fatal")));
                 }
                 if (!foundPll) {
+                    std::cerr << "SendMedication: No PLL info section\n";
                     return CreateOperationOutcome(CreateIssues(CreateIssue("X", "No PLL info section", "Fatal")));
                 }
                 if (!foundAllergies) {
+                    std::cerr << "SendMedication: No allergy section\n";
                     return CreateOperationOutcome(CreateIssues(CreateIssue("X", "No allergy section", "Fatal")));
                 }
             }
@@ -1024,22 +1033,27 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
                             }
                         }
                         if (timeDate.empty()) {
+                            std::cerr << "SendMedication: Discontinuation without timedate\n";
                             return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Discontinuation without timedate", "Fatal")));
                         }
                         pllCessation.timeDate = timeDate;
                         auto codings = reason.GetCoding();
                         if (!codings.empty()) {
                             if (!note.empty()) {
+                                std::cerr << "SendMedication: Either reason or note for discontinuation\n";
                                 return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Either reason or note for discontinuation", "Fatal")));
                             }
                             if (codings.size() != 1) {
+                                std::cerr << "SendMedication: Multiple reason codes for discontinuation\n";
                                 return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Multiple reason codes for discontinuation", "Fatal")));
                             }
                             auto coding = codings[0];
                             if (coding.GetCode().empty()) {
+                                std::cerr << "SendMedication: No reason code supplied for discontinuation\n";
                                 return CreateOperationOutcome(CreateIssues(CreateIssue("X", "No reason code supplied for discontinuation", "Fatal")));
                             }
                             if (!reason.GetText().empty()) {
+                                std::cerr << "SendMedication: Reason text should not be set for discontinuation\n";
                                 return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Reason text should not be set for discontinuation", "Fatal")));
                             }
                             pllCessation.reason.setSystem(coding.GetSystem());
@@ -1047,6 +1061,7 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
                             pllCessation.reason.setDisplay(coding.GetDisplay());
                         } else {
                             if (note.empty()) {
+                                std::cerr << "SendMedication: No reason or note supplied for discontinuation\n";
                                 return CreateOperationOutcome(CreateIssues(
                                         CreateIssue("X", "No reason or note supplied for discontinuation", "Fatal")));
                             }
@@ -1137,10 +1152,12 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
             potentialRecalls.insert_or_assign(prescriptionId, code);
         }
         if (!prescriptions.empty() && patientId.empty()) {
+            std::cerr << "SendMedication: No patient\n";
             return CreateOperationOutcome(CreateIssues(CreateIssue("X", "No patient", "Fatal")));
         }
         for (const auto &prescription : prescriptions) {
             if (prescription.GetPatient() != patientId) {
+                std::cerr << "SendMedication: Different patient\n";
                 return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Different patient", "Fatal")));
             }
         }
@@ -1167,27 +1184,30 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
             for (auto &prescription : prescriptions) {
                 auto id = prescription.GetId();
                 if (id == prescriptionId) {
+                    std::cerr << "SendMedication: Create prescription without renew\n";
                     return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Create prescription without renew", "Fatal")));
                 }
                 auto prevPresIdIter = toPreviousPrescription.find(id);
             }
-            if (createPll && !prescriptionId.empty() && !pllId.empty()) {
+            if (potentialRecalls.find(prescriptionId) != potentialRecalls.end()) {
+                auto rfStatus = prescription->GetRfStatus().getCode();
+                if (rfStatus != "E" && rfStatus != "U") {
+                    std::cerr << "SendMedication: Recalling inactive prescription\n";
+                    return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Recalling inactive prescription", "Fatal")));
+                }
+            } else if (createPll && !prescriptionId.empty() && !pllId.empty()) {
                 if (std::find(ePrescriptionIds.cbegin(), ePrescriptionIds.cend(), prescriptionId) != ePrescriptionIds.cend() &&
                     std::find(injectedPllIds.cbegin(), injectedPllIds.cend(), pllId) != injectedPllIds.cend()) {
+                    std::cerr << "SendMedication: Existing and kept PLL ID reused on a new prescription\n";
                     return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Existing and kept PLL ID reused on a new prescription", "Fatal")));
                 }
                 auto iterator = pllToPrescriptionIdMap.find(pllId);
                 if (iterator != pllToPrescriptionIdMap.end() && iterator->second != prescriptionId) {
                     clearPllIdForMove.emplace_back(pllId);
                     if (prescription->GetRfStatus().getCode() == "E") {
+                        std::cerr << "SendMedication: PLL is already containing a prescription with rfstatus E\n";
                         return CreateOperationOutcome(CreateIssues(CreateIssue("X", "PLL is already containing a prescription with rfstatus E", "Fatal")));
                     }
-                }
-            }
-            if (potentialRecalls.find(prescriptionId) != potentialRecalls.end()) {
-                auto rfStatus = prescription->GetRfStatus().getCode();
-                if (rfStatus != "E" && rfStatus != "U") {
-                    return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Recalling inactive prescription", "Fatal")));
                 }
             }
         }
@@ -1195,8 +1215,10 @@ std::shared_ptr<Fhir> MedicationController::SendMedication(const FhirBundle &bun
             auto id = prescription.GetId();
             if (id.empty()) {
                 if (!createPll || prescription.GetPllId().empty()) {
+                    std::cerr << "SendMedication: Requested create prescription without ID\n";
                     return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Requested create prescription without ID", "Fatal")));
                 }
+                std::cerr << "SendMedication: Without prescription is not yet supported\n";
                 return CreateOperationOutcome(CreateIssues(CreateIssue("X", "Without prescription is not yet supported", "Fatal")));
             }
             auto prevPresIdIter = toPreviousPrescription.find(id);
