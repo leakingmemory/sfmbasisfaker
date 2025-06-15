@@ -4,6 +4,12 @@ project(sfmbasisfaker)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+if (${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD")
+    add_compile_options("-I/usr/local/include")
+    add_compile_options("-DFREEBSD")
+    add_link_options("-L/usr/local/lib")
+endif()
+
 find_package(cpprestsdk REQUIRED)
 
 add_subdirectory(webserver)

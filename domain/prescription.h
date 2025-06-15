@@ -9,6 +9,7 @@
 #include <string>
 #include <memory>
 #include <vector>
+#include <optional>
 
 namespace web::json {
     class value;
