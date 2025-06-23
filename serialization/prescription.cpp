@@ -91,6 +91,27 @@ void MagistralMedication::ParseInline(const web::json::value &json) {
     }
 }
 
+web::json::value Banda::Serialize() const {
+    auto obj = web::json::value::object();
+    obj["productGroup"] = productGroup.Serialize();
+    return obj;
+}
+
+void Banda::ParseInline(const web::json::value &json) {
+    if (json.has_object_field("productGroup")) {
+        productGroup = Code::Parse(json.at("productGroup"));
+    }
+}
+
+std::shared_ptr<Banda> Banda::Parse(const web::json::value &json) {
+    if (!json.is_object()) {
+        return {};
+    }
+    auto banda = std::make_shared<Banda>();
+    banda->ParseInline(json);
+    return banda;
+}
+
 web::json::value PackingInfoPrescription::Serialize() const {
     auto obj = web::json::value::object();
     obj["name"] = web::json::value::string(name);
@@ -142,9 +163,20 @@ std::string Prescription::Serialize() const {
     if (!previousId.empty()) {
         obj["previousId"] = web::json::value::string(previousId);
     }
-    if (medication) {
-        obj["medication"] = medication->Serialize();
-    }
+    struct {
+        web::json::value &obj;
+        void operator () (const std::shared_ptr<Medication> &medication) {
+            if (medication) {
+                obj["medication"] = medication->Serialize();
+            }
+        }
+        void operator () (const std::shared_ptr<Banda> &banda) {
+            if (banda) {
+                obj["banda"] = banda->Serialize();
+            }
+        }
+    } visitor{.obj = obj};
+    std::visit(visitor, product);
     obj["use"] = use.Serialize();
     obj["shortDose"] = shortDose.Serialize();
     obj["dosingText"] = web::json::value::string(dosingText);
@@ -158,6 +190,8 @@ std::string Prescription::Serialize() const {
     obj["numberOfPackages"] = web::json::value::number(numberOfPackages);
     obj["reit"] = web::json::value::string(reit);
     obj["itemGroup"] = itemGroup.Serialize();
+    obj["reimbursementParagraph"] = reimbursementParagraph.Serialize();
+    obj["reimbursementCode"] = reimbursementCode.Serialize();
     obj["rfStatus"] = rfStatus.Serialize();
     obj["lastChanged"] = web::json::value::string(lastChanged);
     obj["typeOfPrescription"] = typeOfPrescription.Serialize();
@@ -190,7 +224,9 @@ Prescription Prescription::Parse(const std::string &json) {
         prescription.previousId = obj.at("previousId").as_string();
     }
     if (obj.has_object_field("medication")) {
-        prescription.medication = Medication::Parse(obj.at("medication"));
+        prescription.product = Medication::Parse(obj.at("medication"));
+    } else if (obj.has_object_field("banda")) {
+        prescription.product = Banda::Parse(obj.at("banda"));
     }
     if (obj.has_object_field("use")) {
         prescription.use = Code::Parse(obj.at("use"));
@@ -232,6 +268,12 @@ Prescription Prescription::Parse(const std::string &json) {
     }
     if (obj.has_object_field("itemGroup")) {
         prescription.itemGroup = Code::Parse(obj.at("itemGroup"));
+    }
+    if (obj.has_object_field("reimbursementParagraph")) {
+        prescription.reimbursementParagraph = Code::Parse(obj.at("reimbursementParagraph"));
+    }
+    if (obj.has_object_field("reimbursementCode")) {
+        prescription.reimbursementCode = Code::Parse(obj.at("reimbursementCode"));
     }
     if (obj.has_object_field("rfStatus")) {
         prescription.rfStatus = Code::Parse(obj.at("rfStatus"));

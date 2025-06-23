@@ -9,6 +9,7 @@
 #include <string>
 #include <memory>
 #include <vector>
+#include <variant>
 #include <optional>
 
 namespace web::json {
@@ -115,6 +116,22 @@ public:
     void ParseInline(const web::json::value &json) override;
 };
 
+class Banda {
+private:
+    Code productGroup{};
+public:
+    void SetProductGroup(const Code &productGroup) {
+        this->productGroup = productGroup;
+    }
+    [[nodiscard]] Code GetProductGroup() const {
+        return productGroup;
+    }
+
+    web::json::value Serialize() const;
+    void ParseInline(const web::json::value &json);
+    static std::shared_ptr<Banda> Parse(const web::json::value &json);
+};
+
 class PackingInfoPrescription {
 private:
     std::string name{};
@@ -179,7 +196,7 @@ private:
     std::string id{};
     std::string pllId{};
     std::string previousId{};
-    std::shared_ptr<Medication> medication{};
+    std::variant<std::shared_ptr<Medication>, std::shared_ptr<Banda>> product{std::shared_ptr<Medication>()};
     Code use{};
     Code shortDose{};
     std::string dosingText{};
@@ -193,6 +210,8 @@ private:
     double numberOfPackages{0.00000};
     std::string reit{};
     Code itemGroup{};
+    Code reimbursementParagraph{};
+    Code reimbursementCode{};
     Code rfStatus{};
     std::string lastChanged{};
     Code typeOfPrescription{};
@@ -224,11 +243,36 @@ public:
     void SetPreviousId(const std::string &prevId) {
         this->previousId = prevId;
     }
+    [[nodiscard]] std::variant<std::shared_ptr<Medication>,std::shared_ptr<Banda>> GetProduct() const {
+        return product;
+    }
     [[nodiscard]] std::shared_ptr<Medication> GetMedication() const {
-        return medication;
+        struct {
+            std::shared_ptr<Medication> medication{};
+            void operator () (const std::shared_ptr<Medication> &medication) {
+                this->medication = medication;
+            }
+            void operator () (const std::shared_ptr<Banda> &) {}
+        } visitor;
+        std::visit(visitor, product);
+        return visitor.medication;
     }
     void SetMedication(const std::shared_ptr<Medication> &medication) {
-        this->medication = medication;
+        this->product = medication;
+    }
+    [[nodiscard]] std::shared_ptr<Banda> GetBanda() const {
+        struct {
+            std::shared_ptr<Banda> banda{};
+            void operator () (const std::shared_ptr<Medication> &) {}
+            void operator () (const std::shared_ptr<Banda> &banda) {
+                this->banda = banda;
+            }
+        } visitor;
+        std::visit(visitor, product);
+        return visitor.banda;
+    }
+    void SetBanda(const std::shared_ptr<Banda> &banda) {
+        product = banda;
     }
     [[nodiscard]] Code GetUse() const {
         return use;
@@ -310,6 +354,18 @@ public:
     }
     void SetItemGroup(const Code &itemGroup) {
         this->itemGroup = itemGroup;
+    }
+    [[nodiscard]] Code GetReimbursementParagraph() const {
+        return reimbursementParagraph;
+    }
+    void SetReimbursementParagraph(const Code &reimbursementParagraph) {
+        this->reimbursementParagraph = reimbursementParagraph;
+    }
+    [[nodiscard]] Code GetReimbursementCode() const {
+        return reimbursementCode;
+    }
+    void SetReimbursementCode(const Code &reimbursementCode) {
+        this->reimbursementCode = reimbursementCode;
     }
     [[nodiscard]] Code GetRfStatus() const {
         return rfStatus;

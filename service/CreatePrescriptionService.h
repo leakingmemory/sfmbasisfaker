@@ -16,6 +16,11 @@ class FhirReference;
 class Person;
 class FhirPerson;
 class FhirBundleEntry;
+class FhirIdentifier;
+enum class FhirStatus;
+class FhirExtension;
+class Fhir;
+class FhirBasic;
 
 struct PractitionerRef {
     std::string id;
@@ -23,12 +28,11 @@ struct PractitionerRef {
 };
 
 class CreatePrescriptionService {
-private:
-    [[nodiscard]] Person GetPerson(const FhirPerson &fhir) const;
 public:
     [[nodiscard]] Person GetPerson(const FhirBundle &bundle, const std::string &fullUrl) const;
     [[nodiscard]] std::shared_ptr<Medication> CreateMedication(const FhirReference &medicationReference, const FhirBundle &bundle) const;
     [[nodiscard]] Prescription CreatePrescription(const std::shared_ptr<FhirMedicationStatement> &medicationStatement, const FhirBundle &bundle) const;
+    [[nodiscard]] Prescription CreatePrescription(const std::shared_ptr<FhirBasic> &basic, const FhirBundle &bundle) const;
 private:
     [[nodiscard]] std::vector<FhirBundleEntry> CreateBundleEntryFromMedication(const std::shared_ptr<FhirMedication> &medication) const;
     void SetCommonFhirMedication(FhirMedication &entry, const Medication &medication) const;
@@ -39,6 +43,7 @@ private:
 public:
     [[nodiscard]] std::vector<FhirBundleEntry> CreateFhirMedication(const std::shared_ptr<Medication> &medication) const;
     [[nodiscard]] PractitionerRef GetPractitionerRef(const std::string &id, std::vector<FhirBundleEntry> &practitioners) const;
+    [[nodiscard]] FhirBundleEntry CreateFhirBasic(const Prescription &prescription, std::vector<FhirBundleEntry> &practitioners);
     [[nodiscard]] FhirBundleEntry CreateFhirMedicationStatement(const Prescription &prescription, std::vector<FhirBundleEntry> &practitioners);
     [[nodiscard]] FhirBundleEntry CreateFhirMedicationStatement(const PaperDispatch &paperDispatch, std::vector<FhirBundleEntry> &practitioners);
 };
